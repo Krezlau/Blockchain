@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/index.js",
-    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev": "nodemon --exec \"npm run lint && ts-node src/index.ts\"",
     "build": "tsc",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write ."
@@ -26,10 +26,7 @@
     "@eslint/js": "^9.38.0",
     "@types/express": "^5.0.3",
     "@types/node": "^24.8.1",
-    "@typescript-eslint/eslint-plugin": "^8.46.1",
-    "@typescript-eslint/parser": "^8.46.1",
     "eslint": "^9.38.0",
-    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "globals": "^16.4.0",
     "nodemon": "^3.1.10",
