@@ -2,10 +2,10 @@
   "compilerOptions": {
     "module": "nodenext",
     "target": "esnext",
-    "rootDir": "src", // gdzie trzymasz kod TS
-    "outDir": "dist", // gdzie trafi skompilowany JS
-    "strict": true, // wymusza dobre praktyki typowania
-    "esModuleInterop": true, // pozwala używać import/export z npm
+    "rootDir": "src",
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
     "skipLibCheck": true
   },
   "include": ["src/**/*.ts"]
