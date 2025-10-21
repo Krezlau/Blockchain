@@ -16,25 +16,24 @@ class App {
     this.startServer(SERVER_PORT, PEER_ADDRESSES);
   }
 
-  private async startServer(port: number, peer_addresses: string[]) {
+  private async startServer(server_port: number, peer_addresses: string[]) {
     this.express = express();
     const router = express.Router();
     router.all("/", (req, res) => res.send("Hi there!"));
     this.express.use("/", router);
     const server = http.createServer(this.express);
-    server.listen(port, () => {
-      console.log("lmao");
+    server.listen(server_port, () => {
+      console.log(`server up on port ${server_port}`);
     });
 
     // accept new connections
     const ws = new WebSocketServer({ server });
     ws.on("connection", (wss) => {
-      console.log("client connected");
-      wss.send("hi there!");
+      wss.send("hi there from server!");
 
       wss.on("message", (message: Buffer) => {
         console.log(`client send something: ${message.toString()}`);
-        wss.send(`received message: ${message.toString()}`);
+        wss.send(`server received message: ${message.toString()}`);
       });
 
       wss.on("close", () => {
@@ -48,9 +47,9 @@ class App {
     this.peers = peer_addresses.map((port) => {
       const client = new WebSocket(`ws://${port}`);
       client.on("open", () => {
-        console.log("Connected to the server!");
+        console.log(`Connected to the server! ${port}`);
 
-        client.send("hello!");
+        client.send(`hello from client ${server_port}`);
       });
       return client;
     });

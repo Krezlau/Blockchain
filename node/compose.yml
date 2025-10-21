@@ -1,32 +1,26 @@
 version: "3.8"
 
 services:
-  # --- NODE 1 ---
   node1:
     build: .
     ports:
       - "42069:42069"
     environment:
       SERVER_PORT: 42069
-      # Connect to node2 on port 42070 and node3 on port 42071
       PEER_ADDRESSES: "node2:42070,node3:42071"
 
-  # --- NODE 2 ---
   node2:
     build: .
     ports:
       - "42070:42070"
     environment:
       SERVER_PORT: 42070
-      # Connect to node1 on port 42069 and node3 on port 42071
-      PEER_ADDRESSES: "node1:42069,node3:42071"
+      PEER_ADDRESSES: "node3:42071"
 
-  # --- NODE 3 ---
   node3:
     build: .
     ports:
       - "42071:42071"
     environment:
       SERVER_PORT: 42071
-      # Connect to node1 on port 42069 and node2 on port 42070
-      PEER_ADDRESSES: "node1:42069,node2:42070"
+      PEER_ADDRESSES: "node1:42069"
