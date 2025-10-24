@@ -1,10 +1,12 @@
 import express from "express";
 import * as http from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import Block from "./block";
 
 class App {
   public express: any;
   public peers: WebSocket[] = [];
+  public blocks: Block[] = [Block.genesisBlock];
 
   constructor() {
     const SERVER_PORT = parseInt(process.env.SERVER_PORT || "42069");

@@ -5,6 +5,8 @@
     "serve": "node dist/index.js"
   },
   "dependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "crypto-js": "^4.2.0",
     "express": "^5.1.0",
     "http": "^0.0.1-security",
     "net": "^1.0.2",
