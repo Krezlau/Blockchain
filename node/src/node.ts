@@ -6,7 +6,7 @@ import Block from "./block";
 class App {
   public express: any;
   public peers: WebSocket[] = [];
-  public blocks: Block[] = [Block.genesisBlock];
+  public blockChain: Block[] = [Block.genesisBlock];
 
   constructor() {
     const SERVER_PORT = parseInt(process.env.SERVER_PORT || "42069");
@@ -14,11 +14,16 @@ class App {
     const PEER_ADDRESSES: string[] = PEER_ADDRESSES_STRING.split(",")
       .map((addr) => addr.trim())
       .filter((addr) => addr.length > 0);
+    const IS_MINER: boolean = parseInt(process.env.IS_MINER || "0") === 1;
 
-    this.startServer(SERVER_PORT, PEER_ADDRESSES);
+    this.startServer(SERVER_PORT, PEER_ADDRESSES, IS_MINER);
   }
 
-  private async startServer(server_port: number, peer_addresses: string[]) {
+  private async startServer(
+    server_port: number,
+    peer_addresses: string[],
+    is_miner: boolean,
+  ) {
     this.express = express();
     const router = express.Router();
     router.all("/", (req, res) => res.send("Hi there!"));
@@ -45,16 +50,26 @@ class App {
 
     await sleep(2000);
 
-    // connect as to peers
+    // connect to peers
     this.peers = peer_addresses.map((port) => {
       const client = new WebSocket(`ws://${port}`);
-      client.on("open", () => {
+      client.on("open", async () => {
         console.log(`Connected to the server! ${port}`);
 
         client.send(`hello from client ${server_port}`);
       });
       return client;
     });
+
+    while (is_miner) {
+      await sleep(5000);
+
+      // create new block
+      console.log("creating new block...");
+
+      // broadcast new block
+      this.peers[0].send("created");
+    }
   }
 }
 export default new App().express;

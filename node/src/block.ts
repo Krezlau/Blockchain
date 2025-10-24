@@ -12,7 +12,9 @@ export class Block {
     this.timestamp = Date.now();
     this.previousHash = previousHash;
     this.data = data;
-    this.hash = calculateBlockHash(this);
+    this.hash = cryptoJs
+      .SHA256(this.index + this.previousHash + this.timestamp + this.data)
+      .toString();
   }
 
   static genesisBlock: Block = new Block(0, null, "genesis block");
@@ -69,6 +71,24 @@ const calculateBlockHash = (block: Block) => {
 
 const generateNewBlock = (previousBlock: Block, blockData: string) => {
   return new Block(previousBlock.index + 1, previousBlock.hash, blockData);
+};
+
+const isValidChain = (blockChain: Block[]) => {
+  if (blockChain.length === 0) {
+    return false;
+  }
+
+  if (JSON.stringify(blockChain[0]) !== JSON.stringify(Block.genesisBlock)) {
+    return false;
+  }
+
+  for (let i = 1; i < blockChain.length; i++) {
+    if (!blockChain[i].isValid(blockChain[i - 1])) {
+      return false;
+    }
+  }
+
+  return true;
 };
 
 export default Block;
