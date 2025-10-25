@@ -69,7 +69,7 @@ const calculateBlockHash = (block: Block) => {
     .toString();
 };
 
-const generateNewBlock = (previousBlock: Block, blockData: string) => {
+export const generateNewBlock = (previousBlock: Block, blockData: string) => {
   return new Block(previousBlock.index + 1, previousBlock.hash, blockData);
 };
 
