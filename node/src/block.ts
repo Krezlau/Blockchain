@@ -17,7 +17,12 @@ export class Block {
       .toString();
   }
 
-  static genesisBlock: Block = new Block(0, null, "genesis block");
+  static genesisBlock(): Block {
+    const genesisBlock = new Block(0, null, "genesis block");
+    genesisBlock.hash = "genesisBlockHash";
+    genesisBlock.timestamp = 1;
+    return genesisBlock;
+  }
 
   isValid(previousBlock: Block) {
     if (!this.isValidStructure) {
@@ -73,17 +78,22 @@ export const generateNewBlock = (previousBlock: Block, blockData: string) => {
   return new Block(previousBlock.index + 1, previousBlock.hash, blockData);
 };
 
-const isValidChain = (blockChain: Block[]) => {
+export const isValidChain = (blockChain: Block[]) => {
   if (blockChain.length === 0) {
+    console.log("length invalid");
     return false;
   }
 
-  if (JSON.stringify(blockChain[0]) !== JSON.stringify(Block.genesisBlock)) {
+  if (JSON.stringify(blockChain[0]) !== JSON.stringify(Block.genesisBlock())) {
+    console.log("genesis block invalid");
+    console.log(JSON.stringify(blockChain[0]));
+    console.log(JSON.stringify(Block.genesisBlock()));
     return false;
   }
 
   for (let i = 1; i < blockChain.length; i++) {
     if (!blockChain[i].isValid(blockChain[i - 1])) {
+      console.log("element " + i + " invalid");
       return false;
     }
   }
