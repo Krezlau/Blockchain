@@ -2,7 +2,7 @@
   "compilerOptions": {
     "module": "nodenext",
     "target": "esnext",
-    "rootDir": "./",
+    "rootDir": "./src",
     "outDir": "dist"
   },
   "include": ["**/*.ts"]

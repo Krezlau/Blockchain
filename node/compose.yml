@@ -7,6 +7,7 @@ services:
       - "42069:42069"
     environment:
       SERVER_PORT: 42069
+      SERVER_NAME: "node1"
       PEER_ADDRESSES: "node2:42070,node3:42071"
 
   node2:
@@ -15,7 +16,8 @@ services:
       - "42070:42070"
     environment:
       SERVER_PORT: 42070
-      PEER_ADDRESSES: "node3:42071"
+      SERVER_NAME: "node2"
+      PEER_ADDRESSES: "node4:42072"
 
   node3:
     build: .
@@ -23,4 +25,14 @@ services:
       - "42071:42071"
     environment:
       SERVER_PORT: 42071
-      PEER_ADDRESSES: "node1:42069"
+      SERVER_NAME: "node3"
+      PEER_ADDRESSES: "node4:42072"
+
+  node4:
+    build: .
+    ports:
+      - "42072:42072"
+    environment:
+      SERVER_PORT: 42072
+      SERVER_NAME: "node4"
+      PEER_ADDRESSES: ""

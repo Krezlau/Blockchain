@@ -2,6 +2,7 @@ FROM node:20-alpine AS builder
 WORKDIR /usr/src/app
 
 COPY package*.json ./
+COPY swagger.yaml ./
 RUN npm install
 
 COPY . .
@@ -14,6 +15,7 @@ FROM node:20-alpine
 WORKDIR /usr/src/app
 
 COPY package*.json ./
+COPY swagger.yaml ./
 RUN npm install --only=production
 
 COPY --from=builder /usr/src/app/dist ./dist
