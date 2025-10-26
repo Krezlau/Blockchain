@@ -40,6 +40,21 @@ paths:
                 items:
                   $ref: "#/components/schemas/Block"
 
+  /peers:
+    get:
+      summary: Get the node's peers
+      tags:
+        - Blockchain
+      responses:
+        "200":
+          description: The list of all peers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
   /mine:
     post:
       summary: Mine a new block

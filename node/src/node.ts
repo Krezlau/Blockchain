@@ -7,37 +7,39 @@ import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
 import NodeMessage from "./node-message";
+import Peer from "./peer";
 
 class App {
   public express: any;
-  public peers: WebSocket[] = [];
+  public peers: Peer[] = [];
   public blockChain: Block[] = [Block.genesisBlock()];
 
   constructor() {
     const SERVER_PORT = parseInt(process.env.SERVER_PORT || "42069");
+    const SERVER_NAME = process.env.SERVER_NAME || "";
     const PEER_ADDRESSES_STRING = process.env.PEER_ADDRESSES || "";
     const PEER_ADDRESSES: string[] = PEER_ADDRESSES_STRING.split(",")
       .map((addr) => addr.trim())
       .filter((addr) => addr.length > 0);
 
-    this.startServer(SERVER_PORT, PEER_ADDRESSES);
+    this.startServer(SERVER_PORT, SERVER_NAME, PEER_ADDRESSES);
   }
 
-  private addSocket(socket: WebSocket): void {
-    this.peers.push(socket);
+  private addSocket(socket: WebSocket, url?: string): void {
+    this.peers.push(new Peer(socket, url));
 
     socket.on("message", (message: Buffer) => {
       this.handleMessage(socket, message);
     });
 
     socket.on("close", () => {
-      this.peers = this.peers.filter((s) => s !== socket);
+      this.peers = this.peers.filter((s) => s.socket !== socket);
     });
 
     socket.on("error", (err) => {
       console.error("Socket error, closing and removing:", err.message);
       socket.close();
-      this.peers = this.peers.filter((s) => s !== socket);
+      this.peers = this.peers.filter((s) => s.socket !== socket);
     });
   }
 
@@ -67,10 +69,12 @@ class App {
     }
     if (nodeMessage.type === "hello") {
       console.log("received hello message: " + nodeMessage.payload);
+      const peer = this.peers.find((x) => x.socket === socket);
+      peer.url = nodeMessage.payload;
     }
   }
 
-  private async startServer(server_port: number, peer_addresses: string[]) {
+  private async startServer(server_port: number, server_name: string, peer_addresses: string[]) {
     this.express = express();
     this.express.use(express.json());
     const router = express.Router();
@@ -97,7 +101,6 @@ class App {
     // accept new connections
     const ws = new WebSocketServer({ server });
     ws.on("connection", (wss) => {
-      wss.send(NodeMessage.hello("hi there from server!").toJson());
       this.addSocket(wss);
     });
 
@@ -105,15 +108,20 @@ class App {
 
     // connect to peers
     peer_addresses.forEach((port) => {
-      const client = new WebSocket(`ws://${port}`);
+      const client = new WebSocket(`ws://${port}/`);
       client.on("open", async () => {
-        this.addSocket(client);
+        this.addSocket(client, client.url);
+        client.send(NodeMessage.hello(`ws://${server_name}:${server_port}/`).toJson());
       });
     });
 
     // expose endpoints
     this.express.get("/blocks", (req: Request, res: Response) => {
       res.send(this.blockChain);
+    });
+
+    this.express.get("/peers", (req: Request, res: Response) => {
+      res.send(this.peers.map((p) => p.url));
     });
 
     this.express.post("/mine", (req: Request, res: Response) => {
@@ -132,8 +140,8 @@ class App {
     const nodeMessage = NodeMessage.newBlock(block).toJson();
     for (let i = 0; i < this.peers.length; i++) {
       const peer = this.peers[i];
-      if (peer !== ignorePeer && peer.readyState === WebSocket.OPEN) {
-        peer.send(nodeMessage);
+      if (peer.socket !== ignorePeer && peer.socket.readyState === WebSocket.OPEN) {
+        peer.socket.send(nodeMessage);
       }
     }
   }

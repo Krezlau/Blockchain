@@ -35,7 +35,7 @@ export class Block {
     const index = previousBlock.index + 1;
     const previousHash = previousBlock.hash;
     const timestamp = Date.now();
-    const hash = CryptoJS.SHA256(index + previousHash + timestamp + blockData).toString();
+    const hash = cryptoJs.SHA256(index + previousHash + timestamp + blockData).toString();
     return new Block(index, hash, previousHash, timestamp, blockData);
   }
 
