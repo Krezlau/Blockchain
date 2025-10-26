@@ -7,57 +7,66 @@ export class Block {
   public timestamp: number;
   public data: string;
 
-  constructor(index: number, previousHash: string, data: string) {
+  private constructor(
+    index: number,
+    hash: string,
+    previousHash: string,
+    timestamp: number,
+    data: string
+  ) {
     this.index = index;
-    this.timestamp = Date.now();
+    this.hash = hash;
+    this.timestamp = timestamp;
     this.previousHash = previousHash;
     this.data = data;
-    this.hash = cryptoJs
-      .SHA256(this.index + this.previousHash + this.timestamp + this.data)
-      .toString();
   }
 
-  static genesisBlock(): Block {
-    const genesisBlock = new Block(0, null, "genesis block");
-    genesisBlock.hash = "genesisBlockHash";
-    genesisBlock.timestamp = 1;
-    return genesisBlock;
+  public static fromJson(json: string) {
+    const parsed = JSON.parse(json);
+
+    return new Block(parsed.index, parsed.hash, parsed.previousHash, parsed.timestamp, parsed.data);
   }
 
-  isValid(previousBlock: Block) {
-    if (!this.isValidStructure) {
+  public static genesisBlock(): Block {
+    return new Block(0, "genesisBlockHash", null, 1, "genesis block");
+  }
+
+  public static generateNewBlock(previousBlock: Block, blockData: string): Block {
+    const index = previousBlock.index + 1;
+    const previousHash = previousBlock.hash;
+    const timestamp = Date.now();
+    const hash = CryptoJS.SHA256(index + previousHash + timestamp + blockData).toString();
+    return new Block(index, hash, previousHash, timestamp, blockData);
+  }
+
+  public isValid(previousBlock: Block) {
+    if (!this.isValidStructure()) {
       console.log("new block: invalid structure!");
       return false;
     }
     if (previousBlock.index !== this.index - 1) {
       console.log(
-        `new block: invalid index!
-        [previousBlock.index: ${previousBlock.index},
-        newBlock.index: ${this.index}]`,
+        `new block: invalid index! [previousBlock.index: ${previousBlock.index}, newBlock.index: ${this.index}]`
       );
       return false;
     }
     if (previousBlock.hash !== this.previousHash) {
       console.log(
-        `new block: invalid previousHash!
-        [previousBlock.hash: ${previousBlock.hash},
-        newBlock.previousHash: ${this.previousHash}]`,
+        `new block: invalid previousHash! [previousBlock.hash: ${previousBlock.hash}, newBlock.previousHash: ${this.previousHash}]`
       );
       return false;
     }
-    const newBlockHash = calculateBlockHash(this);
+    const newBlockHash = this.calculateBlockHash();
     if (newBlockHash !== this.hash) {
       console.log(
-        `new block: incorrect hash!
-        [calculateBlockHash(newBlock): ${newBlockHash},
-        newBlock.hash: ${this.hash}]`,
+        `new block: incorrect hash! [calculateBlockHash(newBlock): ${newBlockHash}, newBlock.hash: ${this.hash}]`
       );
       return false;
     }
     return true;
   }
 
-  isValidStructure() {
+  private isValidStructure() {
     return (
       typeof this.index === "number" &&
       typeof this.hash === "string" &&
@@ -66,34 +75,26 @@ export class Block {
       typeof this.data === "string"
     );
   }
+
+  private calculateBlockHash() {
+    return cryptoJs.SHA256(this.index + this.previousHash + this.timestamp + this.data).toString();
+  }
 }
-
-const calculateBlockHash = (block: Block) => {
-  return cryptoJs
-    .SHA256(block.index + block.previousHash + block.timestamp + block.data)
-    .toString();
-};
-
-export const generateNewBlock = (previousBlock: Block, blockData: string) => {
-  return new Block(previousBlock.index + 1, previousBlock.hash, blockData);
-};
 
 export const isValidChain = (blockChain: Block[]) => {
   if (blockChain.length === 0) {
-    console.log("length invalid");
+    console.log("chain: invalid length");
     return false;
   }
 
   if (JSON.stringify(blockChain[0]) !== JSON.stringify(Block.genesisBlock())) {
-    console.log("genesis block invalid");
-    console.log(JSON.stringify(blockChain[0]));
-    console.log(JSON.stringify(Block.genesisBlock()));
+    console.log("chain: invalid genesis block");
     return false;
   }
 
   for (let i = 1; i < blockChain.length; i++) {
     if (!blockChain[i].isValid(blockChain[i - 1])) {
-      console.log("element " + i + " invalid");
+      console.log("chain: invalid element " + i);
       return false;
     }
   }

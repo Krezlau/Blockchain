@@ -1,12 +1,12 @@
 import express, { Request, Response } from "express";
 import * as http from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { Block, generateNewBlock, isValidChain } from "./block";
-import { plainToInstance } from "class-transformer";
+import { Block, isValidChain } from "./block";
 import * as swaggerUi from "swagger-ui-express";
 import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
+import NodeMessage from "./node-message";
 
 class App {
   public express: any;
@@ -24,7 +24,6 @@ class App {
   }
 
   private addSocket(socket: WebSocket): void {
-    console.log("Adding new socket connection.");
     this.peers.push(socket);
 
     socket.on("message", (message: Buffer) => {
@@ -32,7 +31,6 @@ class App {
     });
 
     socket.on("close", () => {
-      console.log("Socket disconnected, removing from list.");
       this.peers = this.peers.filter((s) => s !== socket);
     });
 
@@ -49,24 +47,14 @@ class App {
     let nodeMessage: NodeMessage;
     try {
       const plaintext = message.toString("utf-8");
-      const json = JSON.parse(plaintext);
-      if (json.type && json.payload) {
-        nodeMessage = plainToInstance(NodeMessage, json);
-      } else {
-        console.log("Received a non-NodeMessage (e.g., hello):", plaintext);
-        return;
-      }
+      nodeMessage = NodeMessage.fromJson(plaintext);
     } catch {
-      console.log("Could not parse message.");
+      console.error("Could not parse message.");
       return;
     }
 
     if (nodeMessage.type === "new-block") {
-      console.log("Received new block message.");
-      const newBlock: Block = plainToInstance(
-        Block,
-        JSON.parse(nodeMessage.payload),
-      );
+      const newBlock: Block = Block.fromJson(nodeMessage.payload);
 
       const newChain = [...this.blockChain, newBlock];
 
@@ -76,6 +64,9 @@ class App {
       } else {
         console.log("Received invalid block, ignoring.");
       }
+    }
+    if (nodeMessage.type === "hello") {
+      console.log("received hello message: " + nodeMessage.payload);
     }
   }
 
@@ -106,7 +97,7 @@ class App {
     // accept new connections
     const ws = new WebSocketServer({ server });
     ws.on("connection", (wss) => {
-      wss.send("hi there from server!");
+      wss.send(NodeMessage.hello("hi there from server!").toJson());
       this.addSocket(wss);
     });
 
@@ -116,7 +107,6 @@ class App {
     peer_addresses.forEach((port) => {
       const client = new WebSocket(`ws://${port}`);
       client.on("open", async () => {
-        console.log(`Connected to the server! ${port}`);
         this.addSocket(client);
       });
     });
@@ -127,9 +117,9 @@ class App {
     });
 
     this.express.post("/mine", (req: Request, res: Response) => {
-      const newBlock: Block = generateNewBlock(
+      const newBlock: Block = Block.generateNewBlock(
         this.blockChain[this.blockChain.length - 1],
-        req.body.data,
+        req.body.data
       );
       this.broadcastNewBlock(newBlock);
       res.send(newBlock);
@@ -139,7 +129,7 @@ class App {
   private broadcastNewBlock(block: Block, ignorePeer: WebSocket = null): void {
     this.blockChain.push(block);
 
-    const nodeMessage = JSON.stringify(new NodeMessage(block));
+    const nodeMessage = NodeMessage.newBlock(block).toJson();
     for (let i = 0; i < this.peers.length; i++) {
       const peer = this.peers[i];
       if (peer !== ignorePeer && peer.readyState === WebSocket.OPEN) {
@@ -152,15 +142,4 @@ export default new App().express;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-class NodeMessage {
-  public version: string = "v1";
-  public type: string;
-  public payload: string;
-
-  constructor(block: Block) {
-    this.type = "new-block";
-    this.payload = JSON.stringify(block);
-  }
 }

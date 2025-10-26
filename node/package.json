@@ -6,7 +6,6 @@
   },
   "dependencies": {
     "@types/crypto-js": "^4.2.2",
-    "class-transformer": "^0.5.1",
     "crypto-js": "^4.2.0",
     "express": "^5.1.0",
     "http": "^0.0.1-security",
