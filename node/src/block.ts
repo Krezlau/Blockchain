@@ -1,4 +1,5 @@
 import cryptoJs from "crypto-js";
+import { hexToBinary } from "./utils";
 
 export class Block {
   public index: number;
@@ -6,37 +7,66 @@ export class Block {
   public previousHash: string;
   public timestamp: number;
   public data: string;
+  public difficulty: number;
+  public nonce: number;
 
   private constructor(
     index: number,
     hash: string,
     previousHash: string,
     timestamp: number,
-    data: string
+    data: string,
+    difficulty: number,
+    nonce: number
   ) {
     this.index = index;
     this.hash = hash;
     this.timestamp = timestamp;
     this.previousHash = previousHash;
     this.data = data;
+    this.difficulty = difficulty;
+    this.nonce = nonce;
   }
 
   public static fromJson(json: string) {
     const parsed = JSON.parse(json);
 
-    return new Block(parsed.index, parsed.hash, parsed.previousHash, parsed.timestamp, parsed.data);
+    return new Block(
+      parsed.index,
+      parsed.hash,
+      parsed.previousHash,
+      parsed.timestamp,
+      parsed.data,
+      parsed.difficulty,
+      parsed.nonce
+    );
   }
 
   public static genesisBlock(): Block {
-    return new Block(0, "genesisBlockHash", null, 1, "genesis block");
+    return new Block(0, "genesisBlockHash", null, 1, "genesis block", 0, 0);
   }
 
-  public static generateNewBlock(previousBlock: Block, blockData: string): Block {
+  public static generateNewBlock(
+    previousBlock: Block,
+    blockData: string,
+    difficulty: number
+  ): Block {
     const index = previousBlock.index + 1;
     const previousHash = previousBlock.hash;
     const timestamp = Date.now();
-    const hash = cryptoJs.SHA256(index + previousHash + timestamp + blockData).toString();
-    return new Block(index, hash, previousHash, timestamp, blockData);
+    let nonce = 0;
+    while (true) {
+      const hash: string = cryptoJs
+        .SHA256(index + previousHash + timestamp + blockData + difficulty + nonce)
+        .toString();
+
+      const hashInBinary: string = hexToBinary(hash);
+      const requiredPrefix: string = "0".repeat(difficulty);
+      if (hashInBinary.startsWith(requiredPrefix)) {
+        return new Block(index, hash, previousHash, timestamp, blockData, difficulty, nonce);
+      }
+      nonce++;
+    }
   }
 
   public isValid(previousBlock: Block) {
@@ -77,7 +107,11 @@ export class Block {
   }
 
   private calculateBlockHash() {
-    return cryptoJs.SHA256(this.index + this.previousHash + this.timestamp + this.data).toString();
+    return cryptoJs
+      .SHA256(
+        this.index + this.previousHash + this.timestamp + this.data + this.difficulty + this.nonce
+      )
+      .toString();
   }
 }
 

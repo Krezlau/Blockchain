@@ -127,7 +127,8 @@ class App {
     this.express.post("/mine", (req: Request, res: Response) => {
       const newBlock: Block = Block.generateNewBlock(
         this.blockChain[this.blockChain.length - 1],
-        req.body.data
+        req.body.data,
+        req.body.difficulty ?? 10
       );
       this.broadcastNewBlock(newBlock);
       res.send(newBlock);
