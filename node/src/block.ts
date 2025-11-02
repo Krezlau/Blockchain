@@ -1,6 +1,9 @@
 import cryptoJs from "crypto-js";
 import { hexToBinary } from "./utils";
 
+const BLOCK_GENERATION_INTERVAL_SECONDS: number = 10;
+const DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS: number = 10;
+
 export class Block {
   public index: number;
   public hash: string;
@@ -43,7 +46,7 @@ export class Block {
   }
 
   public static genesisBlock(): Block {
-    return new Block(0, "genesisBlockHash", null, 1, "genesis block", 0, 0);
+    return new Block(0, "genesisBlockHash", null, 1, "genesis block", 20, 0);
   }
 
   public static generateNewBlock(
@@ -135,5 +138,29 @@ export const isValidChain = (blockChain: Block[]) => {
 
   return true;
 };
+
+export function getDifficulty(blockchain: Block[]): number {
+  const latestBlock: Block = blockchain[blockchain.length - 1];
+  if (latestBlock.index % DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS === 0 && latestBlock.index !== 0) {
+    return getAdjustedDifficulty(latestBlock, blockchain);
+  } else {
+    return latestBlock.difficulty;
+  }
+}
+
+function getAdjustedDifficulty(latestBlock: Block, blockchain: Block[]) {
+  const prevAdjustmentBlock: Block =
+    blockchain[blockchain.length - DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS];
+  const timeExpected_ms: number =
+    BLOCK_GENERATION_INTERVAL_SECONDS * DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS * 1000;
+  const timeTaken_ms: number = latestBlock.timestamp - prevAdjustmentBlock.timestamp;
+  if (timeTaken_ms < timeExpected_ms / 2) {
+    return prevAdjustmentBlock.difficulty + 1;
+  } else if (timeTaken_ms > timeExpected_ms * 2) {
+    return prevAdjustmentBlock.difficulty - 1;
+  } else {
+    return prevAdjustmentBlock.difficulty;
+  }
+}
 
 export default Block;

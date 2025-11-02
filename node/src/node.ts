@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import * as http from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { Block, isValidChain } from "./block";
+import { Block, isValidChain, getDifficulty } from "./block";
 import * as swaggerUi from "swagger-ui-express";
 import * as fs from "fs";
 import * as path from "path";
@@ -13,6 +13,7 @@ class App {
   public express: any;
   public peers: Peer[] = [];
   public blockChain: Block[] = [Block.genesisBlock()];
+  public isMining: boolean = false;
 
   constructor() {
     const SERVER_PORT = parseInt(process.env.SERVER_PORT || "42069");
@@ -125,13 +126,8 @@ class App {
     });
 
     this.express.post("/mine", (req: Request, res: Response) => {
-      const newBlock: Block = Block.generateNewBlock(
-        this.blockChain[this.blockChain.length - 1],
-        req.body.data,
-        req.body.difficulty ?? 10
-      );
-      this.broadcastNewBlock(newBlock);
-      res.send(newBlock);
+      this.continuousMine(req.body.data);
+      res.send("Mining started");
     });
   }
 
@@ -144,6 +140,27 @@ class App {
       if (peer.socket !== ignorePeer && peer.socket.readyState === WebSocket.OPEN) {
         peer.socket.send(nodeMessage);
       }
+    }
+  }
+
+  private async continuousMine(initialData: string) {
+    if (this.isMining) {
+      return;
+    }
+
+    this.isMining = true;
+    let blockData = initialData;
+
+    while (this.isMining) {
+      const lastBlock = this.blockChain[this.blockChain.length - 1];
+      const difficulty = getDifficulty(this.blockChain);
+
+      const newBlock: Block = Block.generateNewBlock(lastBlock, blockData, difficulty);
+
+      this.broadcastNewBlock(newBlock);
+      console.log(`Mined and broadcasted block ${newBlock.index}`);
+
+      await sleep(0);
     }
   }
 }
