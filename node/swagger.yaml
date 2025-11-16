@@ -1,0 +1,79 @@
+openapi: 3.0.0
+info:
+  title: My Blockchain API
+  version: 1.0.0
+  description: A simple Express API for my blockchain node
+servers:
+  # This will be dynamically replaced by your code, but good to have
+  - url: http://localhost:42069
+    description: Development server
+
+components:
+  schemas:
+    Block:
+      type: object
+      properties:
+        index:
+          type: number
+        hash:
+          type: string
+        previousHash:
+          type: string
+        timestamp:
+          type: number
+        data:
+          type: string
+
+paths:
+  /blocks:
+    get:
+      summary: Get the current blockchain
+      tags:
+        - Blockchain
+      responses:
+        "200":
+          description: The list of all blocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Block"
+
+  /peers:
+    get:
+      summary: Get the node's peers
+      tags:
+        - Blockchain
+      responses:
+        "200":
+          description: The list of all peers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /mine:
+    post:
+      summary: Mine a new block
+      tags:
+        - Blockchain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: string
+              example: "{\n\t\"data\": \"block data\"\n}"
+      responses:
+        "200":
+          description: The newly mined block
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Block"
