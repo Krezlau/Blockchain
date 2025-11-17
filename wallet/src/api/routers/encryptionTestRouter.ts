@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { decryptData, encryptData } from "../controllers/encryptionTestController";
+import { signData, verifySignature } from "../controllers/encryptionTestController";
 
 const encryptionTestRouter: Router = Router();
 
-encryptionTestRouter.post("/encrypt-data", encryptData);
-encryptionTestRouter.post("/decrypt-data", decryptData);
+encryptionTestRouter.post("/sign-data", signData);
+encryptionTestRouter.post("/decrypt-data", verifySignature);
 
 export default encryptionTestRouter;
