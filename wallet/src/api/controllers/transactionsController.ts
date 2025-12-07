@@ -10,7 +10,7 @@ import { Request, Response } from "express";
 
 const EC = new ec("secp256k1");
 
-const NODE_API_GET_UTXOS_LIST_URL: string = process.env.NODE_API_URL + '/utxos' || 'http://localhost:3001/utxos';
+export const NODE_URL: string = process.env.NODE_URL || "";
 
 export async function makeTransaction(req: Request, res: Response) {
     const { publicKeyPath, amount, privateKeyObjectPath, password, receiverAddress } = req.body;
@@ -23,7 +23,7 @@ export async function makeTransaction(req: Request, res: Response) {
     try {
         transaction = await createTransaction(publicKeyPath, amount, privateKeyObjectPath, password, receiverAddress);
         res.json({
-            message: "Successfully signed data (ECC/secp256k1).",
+            message: "Successfully signed data",
             transaction: JSON.stringify(transaction),
         });
     } catch (e) {
@@ -36,7 +36,7 @@ export async function checkCredits(req: Request, res: Response){
     const { myAddress } = req.body;
     let allUnspentTxOuts: UnspentTxOut[];
         try {
-            const response = await fetch(NODE_API_GET_UTXOS_LIST_URL);
+            const response = await fetch(NODE_URL + '/unspentTxOuts');
             if (!response.ok) {
                 throw new Error(`Error when requesting transaction outputs list: ${response.status}`);
             }
@@ -47,7 +47,9 @@ export async function checkCredits(req: Request, res: Response){
 
         const myUnspentTxOuts = allUnspentTxOuts.filter((uTxO) => uTxO.address === myAddress);
 
-        sumAmounts(myUnspentTxOuts);
+        res.json({
+            availableCredits: sumAmounts(myUnspentTxOuts)
+        });
 }
 
 
@@ -95,6 +97,27 @@ const createTransaction = async (
     }
 
     transaction.txIns = signedTxIns; 
-    //send request to node to broadcast the transaction
+
+    try {
+        const response = await fetch(
+            NODE_URL + "/sendTransaction", 
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ transaction: transaction }) 
+            }
+        );
+        
+        const responseData = await response.json();
+        console.log("Transaction send to node, node response: ", responseData);
+        
+    } catch (error) {
+        const err = error as Error;
+        console.error("Error when sending transaction to node");
+        throw new Error("Failed to send transaction to node" + err.message); 
+    }
+
     return transaction; 
 };

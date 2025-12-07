@@ -5,6 +5,7 @@ import { TxOut } from "../classes/TxOut";
 import { UnspentTxOut } from "../classes/UnspentTxOut";
 import { getPrivateKeyFromPrivateKeyObject } from "../controllers/encryptionTestController";
 import { ec } from "elliptic";
+import { NODE_URL } from "../controllers/transactionsController";
 
 const EC = new ec("secp256k1");
 
@@ -12,9 +13,6 @@ interface FindUnspentTxOutsResult {
     collectedAmount: number;
     includedUnspentTxOuts: UnspentTxOut[];
 }
-
-const NODE_API_GET_UTXOS_LIST_URL: string = process.env.NODE_API_URL + '/utxos' || 'http://localhost:3001/utxos';
-
 
 export const sumAmounts = (utxos: UnspentTxOut[]): number => {
     return utxos.reduce((sum, utxo) => sum + utxo.amount, 0);
@@ -27,7 +25,7 @@ export const findUnspentTxOutsForGivenAmount = async (
 
     let allUnspentTxOuts: UnspentTxOut[];
     try {
-        const response = await fetch(NODE_API_GET_UTXOS_LIST_URL);
+        const response = await fetch(NODE_URL);
         if (!response.ok) {
             throw new Error(`Error when requesting transaction outputs list: ${response.status}`);
         }
