@@ -7,7 +7,7 @@ import { PrivateKeyObject } from "../interfaces/PrivateKeyObject";
 
 const EC = new ec("secp256k1");
 
-async function getPrivateKeyFromPrivateKeyObject(
+export async function getPrivateKeyFromPrivateKeyObject(
   privateKeyObjectPath: string,
   passphrase: string
 ): Promise<Buffer> {
