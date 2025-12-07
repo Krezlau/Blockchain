@@ -19,6 +19,10 @@ class NodeMessage {
     return new NodeMessage("v1", NodeMessageType.Hello, message);
   }
 
+  public static transaction(transaction: any) {
+    return new NodeMessage("v1", NodeMessageType.Transaction, JSON.stringify(transaction));
+  }
+
   public static fromJson(json: string) {
     const parsed = JSON.parse(json);
 
@@ -33,6 +37,7 @@ class NodeMessage {
 enum NodeMessageType {
   NewBlock = "new-block",
   Hello = "hello",
+  Transaction = "new-transaction"
 }
 
 export default NodeMessage;

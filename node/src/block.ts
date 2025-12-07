@@ -1,5 +1,6 @@
 import cryptoJs from "crypto-js";
 import { hexToBinary } from "./utils";
+import { Transaction } from "./transactions/classes/Transaction";
 
 const BLOCK_GENERATION_INTERVAL_SECONDS: number = 10;
 const DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS: number = 10;
@@ -12,6 +13,8 @@ export class Block {
   public data: string;
   public difficulty: number;
   public nonce: number;
+  public transactions: Transaction[];
+
 
   private constructor(
     index: number,

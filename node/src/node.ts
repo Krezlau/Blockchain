@@ -8,12 +8,19 @@ import * as path from "path";
 import * as yaml from "js-yaml";
 import NodeMessage from "./node-message";
 import Peer from "./peer";
+import { createCoinbaseTx } from "./transactions/createCoinbase";
+import { Transaction } from "./transactions/classes/Transaction";
+import {isValidTransactionInMempool } from "./transactions/transactionMempool";
+import { UnspentTxOut } from "./transactions/UnspentTxOut";
 
 class App {
   public express: any;
   public peers: Peer[] = [];
   public blockChain: Block[] = [Block.genesisBlock()];
   public isMining: boolean = false;
+  public mempool: Transaction[] = [];
+  public unspentTxOuts: UnspentTxOut[] = [];
+
 
   constructor() {
     const SERVER_PORT = parseInt(process.env.SERVER_PORT || "42069");
@@ -54,6 +61,21 @@ class App {
     } catch {
       console.error("Could not parse message.");
       return;
+    }
+    if (nodeMessage.type === "new-transaction") {
+        let newTx: Transaction;
+        try {
+            newTx = JSON.parse(nodeMessage.payload); 
+        } catch {
+            console.error("Could not parse transaction");
+            return;
+        }
+
+        //add transaction to mempool
+        if (this.addTransactionToMempool(newTx)) {
+            //if transaction is correct and new brodcast it
+            this.broadcastNewTransaction(newTx);
+        }
     }
 
     if (nodeMessage.type === "new-block") {
@@ -126,13 +148,27 @@ class App {
     });
 
     this.express.post("/mine", (req: Request, res: Response) => {
-      this.continuousMine(req.body.data);
+      this.continuousMine(req.body.data, req.params.minerAdress);
       res.send("Mining started");
     });
+
+    this.express.post("/send-transaction", (req: Request, res: Response) => {
+      this.addTransactionToMempool(req.body.transaction);
+      res.send("Added transaction to mempool");
+    });
+    this.express.get("/unspentTxOuts", (req: Request, res: Response) => {
+      this.addTransactionToMempool(req.body.transaction);
+      res.send("Added transaction to mempool");
+    });
+    
   }
 
   private broadcastNewBlock(block: Block, ignorePeer: WebSocket = null): void {
     this.blockChain.push(block);
+
+    const minedTxIds = block.transactions.map((tx: Transaction) => tx.id);
+    this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
+    console.log(`Mempool cleared after mining block`);
 
     const nodeMessage = NodeMessage.newBlock(block).toJson();
     for (let i = 0; i < this.peers.length; i++) {
@@ -143,7 +179,7 @@ class App {
     }
   }
 
-  private async continuousMine(initialData: string) {
+  private async continuousMine(initialData: string, minerAdress: string) {
     if (this.isMining) {
       return;
     }
@@ -155,6 +191,12 @@ class App {
       const lastBlock = this.blockChain[this.blockChain.length - 1];
       const difficulty = getDifficulty(this.blockChain);
 
+      const transactionsToMine: Transaction[] = [...this.mempool]
+      const coinbaseTx: Transaction = createCoinbaseTx(
+                minerAdress, 
+                lastBlock.index + 1
+            );
+
       const newBlock: Block = Block.generateNewBlock(lastBlock, blockData, difficulty);
 
       this.broadcastNewBlock(newBlock);
@@ -163,6 +205,40 @@ class App {
       await sleep(0);
     }
   }
+
+
+  private addTransactionToMempool(newTx: Transaction): boolean {
+    
+    //check if transaction is valid
+    if (!isValidTransactionInMempool(newTx, this.mempool, this.unspentTxOuts)) {
+        console.error(`Transaction ${newTx.id} is not corrected and was not added to Mempool.`);
+        return false;
+    }
+    
+    //check if transaction is not already in mempool
+    if (this.mempool.some(tx => tx.id === newTx.id)) {
+        console.log(`Transaction ${newTx.id} is already in mempool.`);
+        return false;
+    }
+
+    this.mempool.push(newTx);
+    console.log(`Transaction ${newTx.id} added to mempool`);
+    return true;
+}
+
+private broadcastNewTransaction(tx: Transaction, ignorePeer: WebSocket = null): void {
+    const nodeMessage = NodeMessage.transaction(tx).toJson(); 
+    console.log(`Broadcasting transaction ${tx.id} to ${this.peers.length} peers.`);
+
+    for (let i = 0; i < this.peers.length; i++) {
+        const peer = this.peers[i];
+        
+        if (peer.socket !== ignorePeer && peer.socket.readyState === WebSocket.OPEN) {
+            peer.socket.send(nodeMessage);
+        }
+    }
+}
+
 }
 export default new App().express;
 

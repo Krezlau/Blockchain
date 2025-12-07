@@ -7,6 +7,7 @@
   "dependencies": {
     "@types/crypto-js": "^4.2.2",
     "crypto-js": "^4.2.0",
+    "elliptic": "^6.6.1",
     "express": "^5.1.0",
     "http": "^0.0.1-security",
     "js-yaml": "^4.1.0",
