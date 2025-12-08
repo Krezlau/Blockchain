@@ -13,6 +13,7 @@ import { Transaction } from "./transactions/classes/Transaction";
 import { isValidTransactionInMempool } from "./transactions/transactionMempool";
 import { UnspentTxOut } from "./transactions/classes/UnspentTxOut";
 import { toUnspentTxOut } from "./transactions/classes/UnspentTxOut";
+import { isValidBlockTransactions } from "./transactions/transactionValidation";
 
 class App {
   public express: any;
@@ -81,12 +82,15 @@ class App {
 
       const newChain = [...this.blockChain, newBlock];
 
-      if (isValidChain(newChain, this.unspentTxOuts)) {
+      if (
+        isValidChain(newChain) &&
+        isValidBlockTransactions(newBlock.data, this.unspentTxOuts, newBlock.index)
+      ) {
         console.log("New block is valid and new. Adding to chain.");
         this.unspentTxOuts = this.processTransactions(newBlock.data, this.unspentTxOuts);
         // when having multiple miners
-        // const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
-        // this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
+        const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
+        this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
         this.broadcastNewBlock(newBlock, socket);
       } else {
         console.log("Received invalid block, ignoring.");

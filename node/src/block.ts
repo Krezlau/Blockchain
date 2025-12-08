@@ -76,7 +76,7 @@ export class Block {
     }
   }
 
-  public isValid(previousBlock: Block, aUnspentTxOuts: UnspentTxOut[]) {
+  public isValid(previousBlock: Block) {
     if (!this.isValidStructure()) {
       console.log("new block: invalid structure!");
       return false;
@@ -101,10 +101,6 @@ export class Block {
       return false;
     }
 
-    if (!isValidBlockTransactions(this.data, aUnspentTxOuts, this.index)) {
-      console.log(`new block: invalid transactions in block ${this.index}`);
-      return false;
-    }
     return true;
   }
 
@@ -133,7 +129,7 @@ export class Block {
   }
 }
 
-export const isValidChain = (blockChain: Block[], aUnspentTxOuts: UnspentTxOut[]) => {
+export const isValidChain = (blockChain: Block[]) => {
   if (blockChain.length === 0) {
     console.log("chain: invalid length");
     return false;
@@ -145,7 +141,7 @@ export const isValidChain = (blockChain: Block[], aUnspentTxOuts: UnspentTxOut[]
   }
 
   for (let i = 1; i < blockChain.length; i++) {
-    if (!blockChain[i].isValid(blockChain[i - 1], aUnspentTxOuts)) {
+    if (!blockChain[i].isValid(blockChain[i - 1])) {
       console.log("chain: invalid element " + i);
       return false;
     }
