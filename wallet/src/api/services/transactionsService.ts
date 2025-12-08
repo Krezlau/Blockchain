@@ -24,7 +24,7 @@ export const findUnspentTxOutsForGivenAmount = async (
 ): Promise<FindUnspentTxOutsResult> => {
   let allUnspentTxOuts: UnspentTxOut[];
   try {
-    const response = await fetch(NODE_URL);
+    const response = await fetch(NODE_URL + "/unspent-outputs");
     if (!response.ok) {
       throw new Error(`Error when requesting transaction outputs list: ${response.status}`);
     }

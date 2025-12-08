@@ -87,7 +87,7 @@ export async function mineBlock(req: Request, res: Response) {
     });
   } catch (e) {
     const err = e as Error;
-    res.status(500).json({ message: "Error in mining block", error: err.message});
+    res.status(500).json({ message: "Error in mining block", error: err.message });
   }
 }
 

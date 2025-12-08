@@ -3,7 +3,7 @@ import { checkCredits, makeTransaction, mineBlock } from "../controllers/transac
 
 const transactionRouter: Router = Router();
 
-transactionRouter.post("/create-transaction", makeTransaction);
+transactionRouter.post("/make-transaction", makeTransaction);
 transactionRouter.post("/check-credits", checkCredits);
 transactionRouter.post("/mine-block", mineBlock);
 

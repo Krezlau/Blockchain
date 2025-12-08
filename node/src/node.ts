@@ -149,14 +149,16 @@ class App {
       res.send(this.peers.map((p) => p.url));
     });
 
-    this.express.post("/mine", (req: Request, res: Response) => {
+    this.express.post("/mine", async (req: Request, res: Response) => {
       // this.continuousMine(req.params.minerAdress);
-      res.send(this.mineOneBlock(req.body.minerAddress));
+      res.send(await this.mineOneBlock(req.body.minerAddress));
     });
 
     this.express.post("/send-transaction", (req: Request, res: Response) => {
-      this.addTransactionToMempool(req.body.transaction);
-      res.send("Added transaction to mempool");
+      if (this.addTransactionToMempool(req.body.transaction))
+        this.broadcastNewTransaction(req.body.transaction);
+
+      res.send({ message: "Added transaction to mempool" });
     });
     this.express.get("/unspent-outputs", (req: Request, res: Response) => {
       res.send(this.unspentTxOuts);
@@ -179,7 +181,7 @@ class App {
     }
   }
 
-  private async mineOneBlock(minerAdress: string) {
+  private async mineOneBlock(minerAdress: string): Promise<Block> {
     const lastBlock = this.blockChain[this.blockChain.length - 1];
     const difficulty = getDifficulty(this.blockChain);
 
