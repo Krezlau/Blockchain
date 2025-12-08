@@ -15,7 +15,8 @@ import { TxIn } from "../classes/TxIn";
 import { Request, Response } from "express";
 
 const EC = new ec("secp256k1");
-
+import dotenv from "dotenv";
+dotenv.config();
 export const NODE_URL: string = process.env.NODE_URL || "";
 
 export async function makeTransaction(req: Request, res: Response) {
@@ -75,7 +76,7 @@ export async function mineBlock(req: Request, res: Response) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ minerAdress: minerAdress }),
+      body: JSON.stringify({ minerAddress: minerAdress }),
     });
 
     const minedBlock = await response.json();
