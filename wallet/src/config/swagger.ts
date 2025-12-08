@@ -217,6 +217,39 @@ export const swaggerOptions = {
             },
           },
         },
+        MineBlockRequest: {
+          type: "object",
+          required: ["minerAdress"],
+          properties: {
+            minerAdress: {
+              type: "string",
+              description: "The public address that will receive the block reward (Coinbase TxOut).",
+              example: "04abcdef1234567890...",
+            },
+          },
+        },
+        MineBlockResponse: {
+          type: "object",
+          properties: {
+            message: {
+              type: "string",
+              example: "Pomyślnie wydobyto blok 123",
+            },
+            block: {
+              type: "object",
+              description: "The newly mined block object (Block class structure).",
+              properties: {
+                index: { type: "integer" },
+                hash: { type: "string" },
+                previousHash: { type: "string" },
+                timestamp: { type: "integer" },
+                data: { type: "array", description: "Array of transactions included in the block." },
+                difficulty: { type: "integer" },
+                nonce: { type: "integer" }
+              }
+            },
+          },
+        },
       },
       securitySchemes: {
         bearerAuth: {
@@ -484,6 +517,55 @@ export const swaggerOptions = {
             },
             "500": {
               description: "Internal server error (e.g., node connection failure).",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ErrorResponse",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/mine-block": {
+        post: {
+          summary: "Mine a single block",
+          description: "Sends a request to the node to initiate the Proof-of-Work process and mine a single block, including transactions from the Mempool.",
+          tags: ["Transaction"],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/MineBlockRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Block successfully mined and added to the chain.",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/MineBlockResponse",
+                  },
+                },
+              },
+            },
+            "400": {
+              description: "Missing required parameters.",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ErrorResponse",
+                  },
+                },
+              },
+            },
+            "500": {
+              description: "Error during mining (e.g., node connection failure, internal mining error).",
               content: {
                 "application/json": {
                   schema: {

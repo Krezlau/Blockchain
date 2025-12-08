@@ -62,6 +62,34 @@ export async function checkCredits(req: Request, res: Response) {
   });
 }
 
+export async function mineBlock(req: Request, res: Response) {
+  const { minerAdress } = req.body;
+
+  if (!minerAdress) {
+    return res.status(400).json({ message: "Miner address is required" });
+  }
+
+  try {
+    const response = await fetch(NODE_URL + "/mine", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ minerAdress: minerAdress }),
+    });
+
+    const minedBlock = await response.json();
+
+    res.status(200).json({
+      message: `Pomyślnie wydobyto blok ${minedBlock.index}`,
+      block: minedBlock,
+    });
+  } catch (e) {
+    const err = e as Error;
+    res.status(500).json({ message: "Error in mining block", error: err.message});
+  }
+}
+
 const createTransaction = async (
   publicKeyPath: string,
   amount: number,
