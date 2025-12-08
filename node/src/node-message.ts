@@ -1,4 +1,5 @@
 import Block from "./block";
+import { Transaction } from "./transactions/classes/Transaction";
 
 class NodeMessage {
   public version: string = "v1";
@@ -19,7 +20,7 @@ class NodeMessage {
     return new NodeMessage("v1", NodeMessageType.Hello, message);
   }
 
-  public static transaction(transaction: any) {
+  public static transaction(transaction: Transaction) {
     return new NodeMessage("v1", NodeMessageType.Transaction, JSON.stringify(transaction));
   }
 
@@ -34,10 +35,10 @@ class NodeMessage {
   }
 }
 
-enum NodeMessageType {
+export enum NodeMessageType {
   NewBlock = "new-block",
   Hello = "hello",
-  Transaction = "new-transaction"
+  Transaction = "new-transaction",
 }
 
 export default NodeMessage;

@@ -6,12 +6,12 @@ import * as swaggerUi from "swagger-ui-express";
 import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
-import NodeMessage from "./node-message";
+import NodeMessage, { NodeMessageType } from "./node-message";
 import Peer from "./peer";
 import { createCoinbaseTx } from "./transactions/createCoinbase";
 import { Transaction } from "./transactions/classes/Transaction";
-import {isValidTransactionInMempool } from "./transactions/transactionMempool";
-import { UnspentTxOut } from "./transactions/UnspentTxOut";
+import { isValidTransactionInMempool } from "./transactions/transactionMempool";
+import { UnspentTxOut } from "./transactions/classes/UnspentTxOut";
 import { toUnspentTxOut } from "./transactions/classes/UnspentTxOut";
 
 class App {
@@ -21,7 +21,6 @@ class App {
   public isMining: boolean = false;
   public mempool: Transaction[] = [];
   public unspentTxOuts: UnspentTxOut[] = [];
-
 
   constructor() {
     const SERVER_PORT = parseInt(process.env.SERVER_PORT || "42069");
@@ -63,23 +62,21 @@ class App {
       console.error("Could not parse message.");
       return;
     }
-    if (nodeMessage.type === "new-transaction") {
-        let newTx: Transaction;
-        try {
-            newTx = JSON.parse(nodeMessage.payload); 
-        } catch {
-            console.error("Could not parse transaction");
-            return;
-        }
+    if (nodeMessage.type === NodeMessageType.Transaction) {
+      let newTx: Transaction;
+      try {
+        newTx = JSON.parse(nodeMessage.payload);
+      } catch {
+        console.error("Could not parse transaction");
+        return;
+      }
 
-        //add transaction to mempool
-        if (this.addTransactionToMempool(newTx)) {
-            //if transaction is correct and new brodcast it
-            this.broadcastNewTransaction(newTx);
-        }
+      if (this.addTransactionToMempool(newTx)) {
+        this.broadcastNewTransaction(newTx);
+      }
     }
 
-    if (nodeMessage.type === "new-block") {
+    if (nodeMessage.type === NodeMessageType.NewBlock) {
       const newBlock: Block = Block.fromJson(nodeMessage.payload);
 
       const newChain = [...this.blockChain, newBlock];
@@ -87,12 +84,15 @@ class App {
       if (isValidChain(newChain, this.unspentTxOuts)) {
         console.log("New block is valid and new. Adding to chain.");
         this.unspentTxOuts = this.processTransactions(newBlock.data, this.unspentTxOuts);
+        // when having multiple miners
+        // const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
+        // this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
         this.broadcastNewBlock(newBlock, socket);
       } else {
         console.log("Received invalid block, ignoring.");
       }
     }
-    if (nodeMessage.type === "hello") {
+    if (nodeMessage.type === NodeMessageType.Hello) {
       console.log("received hello message: " + nodeMessage.payload);
       const peer = this.peers.find((x) => x.socket === socket);
       peer.url = nodeMessage.payload;
@@ -158,7 +158,7 @@ class App {
       this.addTransactionToMempool(req.body.transaction);
       res.send("Added transaction to mempool");
     });
-    this.express.get("/unspentTxOuts", (req: Request, res: Response) => {
+    this.express.get("/unspent-outputs", (req: Request, res: Response) => {
       this.addTransactionToMempool(req.body.transaction);
       res.send("Added transaction to mempool");
     });
@@ -166,7 +166,6 @@ class App {
     this.express.get("/mempool", (req: Request, res: Response) => {
       res.send(this.mempool);
     });
-    
   }
 
   private broadcastNewBlock(block: Block, ignorePeer: WebSocket = null): void {
@@ -190,12 +189,9 @@ class App {
       const lastBlock = this.blockChain[this.blockChain.length - 1];
       const difficulty = getDifficulty(this.blockChain);
 
-      const coinbaseTx: Transaction = createCoinbaseTx(
-          minerAdress, 
-          lastBlock.index + 1
-      );
+      const coinbaseTx: Transaction = createCoinbaseTx(minerAdress, lastBlock.index + 1);
 
-      const transactionsToMine: Transaction[] = [coinbaseTx, ...this.mempool]
+      const transactionsToMine: Transaction[] = [coinbaseTx, ...this.mempool];
       const newBlock: Block = Block.generateNewBlock(lastBlock, transactionsToMine, difficulty);
 
       this.unspentTxOuts = this.processTransactions(newBlock.data, this.unspentTxOuts);
@@ -203,7 +199,6 @@ class App {
       const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
       this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
       console.log(`Mempool cleared after mining block`);
-
 
       this.broadcastNewBlock(newBlock);
       console.log(`Mined and broadcasted block ${newBlock.index}`);
@@ -213,71 +208,66 @@ class App {
   }
 
   private addTransactionToMempool(newTx: Transaction): boolean {
-    
-    //check if transaction is valid
     if (!isValidTransactionInMempool(newTx, this.mempool, this.unspentTxOuts)) {
-        console.error(`Transaction ${newTx.id} is not corrected and was not added to Mempool.`);
-        return false;
+      console.error(`Transaction ${newTx.id} is not correct and was not added to Mempool.`);
+      return false;
     }
-    
-    //check if transaction is not already in mempool
-    if (this.mempool.some(tx => tx.id === newTx.id)) {
-        console.log(`Transaction ${newTx.id} is already in mempool.`);
-        return false;
+
+    if (this.mempool.some((tx) => tx.id === newTx.id)) {
+      console.log(`Transaction ${newTx.id} is already in mempool.`);
+      return false;
     }
 
     this.mempool.push(newTx);
     console.log(`Transaction ${newTx.id} added to mempool`);
     return true;
-}
+  }
 
-private broadcastNewTransaction(tx: Transaction, ignorePeer: WebSocket = null): void {
-    const nodeMessage = NodeMessage.transaction(tx).toJson(); 
+  private broadcastNewTransaction(tx: Transaction, ignorePeer: WebSocket = null): void {
+    const nodeMessage = NodeMessage.transaction(tx).toJson();
     console.log(`Broadcasting transaction ${tx.id} to ${this.peers.length} peers.`);
 
     for (let i = 0; i < this.peers.length; i++) {
-        const peer = this.peers[i];
-        
-        if (peer.socket !== ignorePeer && peer.socket.readyState === WebSocket.OPEN) {
-            peer.socket.send(nodeMessage);
-        }
+      const peer = this.peers[i];
+
+      if (peer.socket !== ignorePeer && peer.socket.readyState === WebSocket.OPEN) {
+        peer.socket.send(nodeMessage);
+      }
     }
-}
+  }
 
-private processTransactions = (
-    allTransactions: Transaction[], 
-    aUnspentTxOuts: UnspentTxOut[], 
-): UnspentTxOut[] => {
+  private processTransactions(
+    blockTransactions: Transaction[],
+    currentUnspentTxOuts: UnspentTxOut[]
+  ): UnspentTxOut[] {
+    // wszystkie outy
+    const newUnspentTxOuts: UnspentTxOut[] = blockTransactions
+      .map((tx) => tx.txOuts.map((txOut, txOutIndex) => toUnspentTxOut(txOut, tx.id, txOutIndex)))
+      .flat();
 
-    const newUnspentTxOuts: UnspentTxOut[] = allTransactions
-        .map(tx => tx.txOuts.map((txOut, txOutIndex) => 
-            toUnspentTxOut(txOut, tx.id, txOutIndex)
-        ))
-        .flat(); 
+    // wszystkie iny bez coinbase
+    const consumedTxOuts: { txOutId: string; txOutIndex: number }[] = blockTransactions
+      .map((tx) => tx.txIns)
+      .flat() // txIns[]
+      .map((txIn) => ({
+        txOutId: txIn.txOutId,
+        txOutIndex: txIn.txOutIndex,
+      }))
+      //filter out coinbase
+      .filter((consumed) => consumed.txOutId !== "0");
 
-    // take all consumed utxos in this blok
-    const consumedTxOuts: { txOutId: string, txOutIndex: number }[] = allTransactions
-        .map(tx => tx.txIns)
-        .flat()
-        .map(txIn => ({
-            txOutId: txIn.txOutId,
-            txOutIndex: txIn.txOutIndex
-        }))
-        //filter out coinbase
-        .filter(consumed => consumed.txOutId !== '0'); 
-      
-    
     // check which utxos from unspendUtxos list are still valid (if they were not spent in new block)
-    const remainingUnspentTxOuts: UnspentTxOut[] = aUnspentTxOuts.filter(uTxO => 
-        !consumedTxOuts.some(consumed => 
-            consumed.txOutId === uTxO.txOutId && consumed.txOutIndex === uTxO.txOutIndex
+    // z obecnych unspent txOuts wywalamy skonsumowane w tym bloku
+    const remainingUnspentTxOuts: UnspentTxOut[] = currentUnspentTxOuts.filter(
+      (uTxO) =>
+        !consumedTxOuts.some(
+          (consumed) => consumed.txOutId === uTxO.txOutId && consumed.txOutIndex === uTxO.txOutIndex
         )
     );
 
     // create new unspendUtxos list
     return [...remainingUnspentTxOuts, ...newUnspentTxOuts];
-};
-
+  }
 }
 export default new App().express;
 

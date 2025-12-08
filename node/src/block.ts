@@ -2,7 +2,7 @@ import cryptoJs from "crypto-js";
 import { hexToBinary } from "./utils";
 import { Transaction } from "./transactions/classes/Transaction";
 import { isValidBlockTransactions } from "./transactions/transactionValidation";
-import { UnspentTxOut } from "./transactions/UnspentTxOut";
+import { UnspentTxOut } from "./transactions/classes/UnspentTxOut";
 
 const BLOCK_GENERATION_INTERVAL_SECONDS: number = 10;
 const DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS: number = 10;
@@ -16,7 +16,6 @@ export class Block {
   public difficulty: number;
   public nonce: number;
 
-
   private constructor(
     index: number,
     hash: string,
@@ -24,7 +23,7 @@ export class Block {
     timestamp: number,
     data: Transaction[],
     difficulty: number,
-    nonce: number,
+    nonce: number
   ) {
     this.index = index;
     this.hash = hash;
@@ -45,7 +44,7 @@ export class Block {
       parsed.timestamp,
       parsed.data,
       parsed.difficulty,
-      parsed.nonce,
+      parsed.nonce
     );
   }
 
@@ -62,7 +61,7 @@ export class Block {
     const previousHash = previousBlock.hash;
     const timestamp = Date.now();
     let nonce = 0;
-    const dataSerialized: string = JSON.stringify(transactions); 
+    const dataSerialized: string = JSON.stringify(transactions);
     while (true) {
       const hash: string = cryptoJs
         .SHA256(index + previousHash + timestamp + dataSerialized + difficulty + nonce)
@@ -103,8 +102,8 @@ export class Block {
     }
 
     if (!isValidBlockTransactions(this.data, aUnspentTxOuts, this.index)) {
-        console.log(`new block: invalid transactions in block ${this.index}`);
-        return false;
+      console.log(`new block: invalid transactions in block ${this.index}`);
+      return false;
     }
     return true;
   }
@@ -124,7 +123,12 @@ export class Block {
     const dataSerialized = JSON.stringify(this.data);
     return cryptoJs
       .SHA256(
-        this.index + this.previousHash + this.timestamp + dataSerialized + this.difficulty + this.nonce
+        this.nonce +
+          this.index +
+          this.previousHash +
+          this.timestamp +
+          dataSerialized +
+          this.difficulty
       )
       .toString();
   }

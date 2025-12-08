@@ -3,33 +3,29 @@ import { TxIn } from "./classes/TxIn";
 import { TxOut } from "./classes/TxOut";
 import { getTransactionId } from "./utilities";
 
-const COINBASE_AMOUNT = 50;
+export const COINBASE_AMOUNT = 50;
 
-export const createCoinbaseTx = (
-    receiverAddress: string,
-    blockIndex: number,
-): Transaction => {
-    
-    const reward: number = COINBASE_AMOUNT;
+export function createCoinbaseTx(receiverAddress: string, blockIndex: number): Transaction {
+  const reward: number = COINBASE_AMOUNT;
 
-    const txIn: TxIn = {
-        txOutId: '0',
-        txOutIndex: blockIndex,
-        signature: '',
-    };
+  const txIn: TxIn = {
+    txOutId: "0",
+    txOutIndex: blockIndex,
+    signature: "",
+  };
 
-    const txOut: TxOut = {
-        address: receiverAddress,
-        amount: reward,
-    };
+  const txOut: TxOut = {
+    address: receiverAddress,
+    amount: reward,
+  };
 
-    let tx: Transaction = {
-        txIns: [txIn],
-        txOuts: [txOut],
-        id: ''
-    };
+  let tx: Transaction = {
+    txIns: [txIn],
+    txOuts: [txOut],
+    id: "",
+  };
 
-    tx.id = getTransactionId(tx);
+  tx.id = getTransactionId(tx);
 
-    return tx;
-};
+  return tx;
+}
