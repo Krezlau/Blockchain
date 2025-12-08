@@ -8,6 +8,7 @@ export const isValidTransactionInMempool = (
     aUnspentTxOuts: UnspentTxOut[]
 ): boolean => {
 
+    //check if transaction is valid
     if (!isValidTransaction(tx, aUnspentTxOuts)) {
         console.error(`Error during transaction basic validation`);
         return false;

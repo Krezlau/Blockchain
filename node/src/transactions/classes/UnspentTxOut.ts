@@ -1,3 +1,5 @@
+import { TxOut } from "./TxOut";
+
 export class UnspentTxOut {
     public readonly txOutId: string; 
     public readonly txOutIndex: number; 
@@ -10,4 +12,13 @@ export class UnspentTxOut {
         this.address = address;
         this.amount = amount;
     }
+
 }
+export const toUnspentTxOut = (txOut: TxOut, txId: string, txOutIndex: number): UnspentTxOut => {
+    return {
+        txOutId: txId,
+        txOutIndex: txOutIndex,
+        address: txOut.address,
+        amount: txOut.amount,
+    };
+};

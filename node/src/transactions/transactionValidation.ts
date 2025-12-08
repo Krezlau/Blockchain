@@ -101,3 +101,35 @@ export const isValidTransaction = (tx: Transaction, aUnspentTxOuts: UnspentTxOut
 
     return true;
 };
+
+export const isValidBlockTransactions = (
+    aTransactions: Transaction[], 
+    aUnspentTxOuts: UnspentTxOut[], 
+    blockIndex: number
+): boolean => {
+    
+    const coinbaseTx = aTransactions[0];
+    if (coinbaseTx.txIns[0].txOutId !== '0' || coinbaseTx.txIns[0].txOutIndex !== blockIndex) {
+         console.error('Wrong Coinbase');
+         return false;
+    }
+
+    const consumedTxOuts = aTransactions.map(tx => tx.txIns).flat().filter(txIn => txIn.txOutId !== '0');
+    const consumedTxOutsIds = consumedTxOuts.map(txIn => txIn.txOutId + txIn.txOutIndex);
+    const uniqueConsumedTxOutsIds = [...new Set(consumedTxOutsIds)];
+    
+    if (consumedTxOutsIds.length !== uniqueConsumedTxOutsIds.length) {
+        console.error('Double spending detected');
+        return false;
+    }
+
+    const standardTransactions = aTransactions.slice(1);
+    const allStandardValid = standardTransactions.every(tx => isValidTransaction(tx, aUnspentTxOuts));
+
+    if (!allStandardValid) {
+        console.error('One of transactions is ivalid - check failed on isValidTransaction');
+        return false;
+    }
+    
+    return true;
+};
