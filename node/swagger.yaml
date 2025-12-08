@@ -4,12 +4,61 @@ info:
   version: 1.0.0
   description: A simple Express API for my blockchain node
 servers:
-  # This will be dynamically replaced by your code, but good to have
   - url: http://localhost:42069
     description: Development server
 
 components:
   schemas:
+    # --- Podstawowe obiekty ---
+    TxIn:
+      type: object
+      properties:
+        txOutId:
+          type: string
+          description: ID of the transaction output being used
+        txOutIndex:
+          type: number
+          description: Index of the output in the previous transaction
+        signature:
+          type: string
+          description: Signature verifying ownership
+
+    TxOut:
+      type: object
+      properties:
+        address:
+          type: string
+          description: Recipient address
+        amount:
+          type: number
+          description: Amount of coins
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        txIns:
+          type: array
+          items:
+            $ref: "#/components/schemas/TxIn"
+        txOuts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TxOut"
+
+    UnspentTxOut:
+      type: object
+      properties:
+        txOutId:
+          type: string
+        txOutIndex:
+          type: number
+        address:
+          type: string
+        amount:
+          type: number
+
     Block:
       type: object
       properties:
@@ -21,8 +70,15 @@ components:
           type: string
         timestamp:
           type: number
+        difficulty:
+          type: number
+        nonce:
+          type: number
         data:
-          type: string
+          type: array
+          description: List of transactions in the block
+          items:
+            $ref: "#/components/schemas/Transaction"
 
 paths:
   /blocks:
@@ -44,10 +100,10 @@ paths:
     get:
       summary: Get the node's peers
       tags:
-        - Blockchain
+        - Network
       responses:
         "200":
-          description: The list of all peers
+          description: The list of all peer URLs
           content:
             application/json:
               schema:
@@ -55,21 +111,19 @@ paths:
                 items:
                   type: string
 
-  /mine:
+  /mine/{minerAddress}:
     post:
       summary: Mine a new block
+      description: Mines a block containing pending transactions and a coinbase transaction for the miner.
       tags:
-        - Blockchain
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                data:
-                  type: string
-              example: "{\n\t\"data\": \"block data\"\n}"
+        - Mining
+      parameters:
+        - in: path
+          name: minerAddress
+          schema:
+            type: string
+          required: true
+          description: The address (public key) of the miner to receive the reward
       responses:
         "200":
           description: The newly mined block
@@ -77,3 +131,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Block"
+
+  /send-transaction:
+    post:
+      summary: Send a new transaction
+      tags:
+        - Transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                transaction:
+                  $ref: "#/components/schemas/Transaction"
+      responses:
+        "200":
+          description: Confirmation message
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Added transaction to mempool"
+
+  /mempool:
+    get:
+      summary: Get pending transactions
+      tags:
+        - Transactions
+      responses:
+        "200":
+          description: List of transactions waiting to be mined
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
+  /unspent-outputs:
+    get:
+      summary: Get unspent transaction outputs (UTXO)
+      description: Returns the list of all unspent transaction outputs valid for the current chain.
+      tags:
+        - Transactions
+      responses:
+        "200":
+          description: List of UTXOs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UnspentTxOut"

@@ -150,8 +150,8 @@ class App {
     });
 
     this.express.post("/mine", (req: Request, res: Response) => {
-      this.continuousMine(req.params.minerAdress);
-      res.send("Mining started");
+      // this.continuousMine(req.params.minerAdress);
+      res.send(this.mineOneBlock(req.params.minerAdress));
     });
 
     this.express.post("/send-transaction", (req: Request, res: Response) => {
@@ -159,8 +159,7 @@ class App {
       res.send("Added transaction to mempool");
     });
     this.express.get("/unspent-outputs", (req: Request, res: Response) => {
-      this.addTransactionToMempool(req.body.transaction);
-      res.send("Added transaction to mempool");
+      res.send(this.unspentTxOuts);
     });
 
     this.express.get("/mempool", (req: Request, res: Response) => {
@@ -180,28 +179,34 @@ class App {
     }
   }
 
+  private async mineOneBlock(minerAdress: string) {
+    const lastBlock = this.blockChain[this.blockChain.length - 1];
+    const difficulty = getDifficulty(this.blockChain);
+
+    const coinbaseTx: Transaction = createCoinbaseTx(minerAdress, lastBlock.index + 1);
+
+    const transactionsToMine: Transaction[] = [coinbaseTx, ...this.mempool];
+    const newBlock: Block = Block.generateNewBlock(lastBlock, transactionsToMine, difficulty);
+
+    this.unspentTxOuts = this.processTransactions(newBlock.data, this.unspentTxOuts);
+
+    const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
+    this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
+    console.log(`Mempool cleared after mining block`);
+
+    this.broadcastNewBlock(newBlock);
+    console.log(`Mined and broadcasted block ${newBlock.index}`);
+
+    return newBlock;
+  }
+
   private async continuousMine(minerAdress: string) {
     if (this.isMining) {
       return;
     }
 
     while (this.isMining) {
-      const lastBlock = this.blockChain[this.blockChain.length - 1];
-      const difficulty = getDifficulty(this.blockChain);
-
-      const coinbaseTx: Transaction = createCoinbaseTx(minerAdress, lastBlock.index + 1);
-
-      const transactionsToMine: Transaction[] = [coinbaseTx, ...this.mempool];
-      const newBlock: Block = Block.generateNewBlock(lastBlock, transactionsToMine, difficulty);
-
-      this.unspentTxOuts = this.processTransactions(newBlock.data, this.unspentTxOuts);
-
-      const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
-      this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
-      console.log(`Mempool cleared after mining block`);
-
-      this.broadcastNewBlock(newBlock);
-      console.log(`Mined and broadcasted block ${newBlock.index}`);
+      this.mineOneBlock(minerAdress);
 
       await sleep(0);
     }
