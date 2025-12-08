@@ -151,6 +151,72 @@ export const swaggerOptions = {
             },
           },
         },
+        MakeTransactionRequest: {
+          type: "object",
+          required: ["publicKeyPath", "amount", "privateKeyObjectPath", "password", "receiverAddress"],
+          properties: {
+            publicKeyPath: {
+              type: "string",
+              description: "Path to the public key file (used to find change address).",
+              example: "keys/ecc_pub_key.txt",
+            },
+            amount: {
+              type: "integer",
+              description: "Amount of currency to send.",
+              example: 10,
+            },
+            privateKeyObjectPath: {
+              type: "string",
+              description: "Path to the encrypted private key file (sender).",
+              example: "keys/ecc_priv_key.json",
+            },
+            password: {
+              type: "string",
+              description: "Password to decrypt the private key.",
+              example: "password",
+            },
+            receiverAddress: {
+              type: "string",
+              description: "Public address of the receiver.",
+              example: "04abcdef1234567890...",
+            },
+          },
+        },
+        MakeTransactionResponse: {
+          type: "object",
+          properties: {
+            message: {
+              type: "string",
+              example: "Successfully signed data",
+            },
+            transaction: {
+              type: "string",
+              description: "The created and signed transaction object (JSON string).",
+              example: '{"id": "...", "txIns": [...], "txOuts": [...]}',
+            },
+          },
+        },
+        CheckCreditsRequest: {
+          type: "object",
+          required: ["myAddress"],
+          properties: {
+            myAddress: {
+              type: "string",
+              description: "Your public key address to check balance for.",
+              example: "04abcdef1234567890...",
+            },
+          },
+        },
+        CheckCreditsResponse: {
+          type: "object",
+          properties: {
+            availableCredits: {
+              type: "integer",
+              description: "Total available unspent amount (sum of UTXOs) for the given address.",
+              example: 150,
+            },
+          },
+        },
       },
       securitySchemes: {
         bearerAuth: {
@@ -331,6 +397,104 @@ export const swaggerOptions = {
           },
         },
       },
+      "/api/make-transaction": {
+        post: {
+          summary: "Create and sign a new transaction",
+          description: "Gathers necessary UTXOs, signs a new transaction using the private key, and prepares it for broadcasting. NOTE: This endpoint only creates the transaction, broadcasting must be done separately.",
+          tags: ["Transaction"],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/MakeTransactionRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Transaction successfully created and signed.",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/MakeTransactionResponse",
+                  },
+                },
+              },
+            },
+            "400": {
+              description: "Missing required parameters or insufficient funds.",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ErrorResponse",
+                  },
+                },
+              },
+            },
+            "500": {
+              description: "Error during transaction creation (e.g., file reading error, signing failure).",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ErrorResponse",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/check-credits": {
+        post: {
+          summary: "Check available balance (credits)",
+          description: "Fetches the current UTXO set from the node and calculates the total available balance for the given address.",
+          tags: ["Transaction"],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/CheckCreditsRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Balance checked successfully.",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/CheckCreditsResponse",
+                  },
+                },
+              },
+            },
+            "400": {
+              description: "Missing required parameters.",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ErrorResponse",
+                  },
+                },
+              },
+            },
+            "500": {
+              description: "Internal server error (e.g., node connection failure).",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ErrorResponse",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     },
     tags: [
       {
@@ -344,6 +508,10 @@ export const swaggerOptions = {
       {
         name: "Encryption",
         description: "Encryption and signature operations",
+      },
+      {
+        name: "Transaction",
+        description: "Wallet and transaction operations",
       },
     ],
   },
