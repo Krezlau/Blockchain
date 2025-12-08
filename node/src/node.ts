@@ -198,7 +198,7 @@ class App {
       const transactionsToMine: Transaction[] = [coinbaseTx, ...this.mempool]
       const newBlock: Block = Block.generateNewBlock(lastBlock, transactionsToMine, difficulty);
 
-      this.unspentTxOuts = this.processTransactions(newBlock.data, this.unspentTxOuts, newBlock.index);
+      this.unspentTxOuts = this.processTransactions(newBlock.data, this.unspentTxOuts);
 
       const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
       this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
@@ -211,7 +211,6 @@ class App {
       await sleep(0);
     }
   }
-
 
   private addTransactionToMempool(newTx: Transaction): boolean {
     
