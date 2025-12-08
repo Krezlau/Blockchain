@@ -64,7 +64,7 @@ export class Block {
     const dataSerialized: string = JSON.stringify(transactions);
     while (true) {
       const hash: string = cryptoJs
-        .SHA256(index + previousHash + timestamp + dataSerialized + difficulty + nonce)
+        .SHA256(nonce + index + previousHash + timestamp + dataSerialized + difficulty)
         .toString();
 
       const hashInBinary: string = hexToBinary(hash);
@@ -114,7 +114,6 @@ export class Block {
       typeof this.hash === "string" &&
       typeof this.previousHash === "string" &&
       typeof this.timestamp === "number" &&
-      typeof this.data === "string" &&
       Array.isArray(this.data)
     );
   }

@@ -151,7 +151,7 @@ class App {
 
     this.express.post("/mine", (req: Request, res: Response) => {
       // this.continuousMine(req.params.minerAdress);
-      res.send(this.mineOneBlock(req.params.minerAdress));
+      res.send(this.mineOneBlock(req.body.minerAddress));
     });
 
     this.express.post("/send-transaction", (req: Request, res: Response) => {

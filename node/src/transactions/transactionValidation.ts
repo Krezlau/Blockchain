@@ -106,7 +106,7 @@ export const isValidBlockTransactions = (
   blockIndex: number
 ): boolean => {
   const coinbaseTx = aTransactions[0];
-  if (isValidCoinbaseTx(coinbaseTx, blockIndex)) {
+  if (!isValidCoinbaseTx(coinbaseTx, blockIndex)) {
     console.error("Wrong Coinbase");
     return false;
   }

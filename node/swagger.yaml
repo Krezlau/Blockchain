@@ -111,19 +111,12 @@ paths:
                 items:
                   type: string
 
-  /mine/{minerAddress}:
+  /mine/:
     post:
       summary: Mine a new block
       description: Mines a block containing pending transactions and a coinbase transaction for the miner.
       tags:
         - Mining
-      parameters:
-        - in: path
-          name: minerAddress
-          schema:
-            type: string
-          required: true
-          description: The address (public key) of the miner to receive the reward
       responses:
         "200":
           description: The newly mined block
@@ -131,6 +124,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Block"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              example: { "minerAddress": "1234" }
 
   /send-transaction:
     post:
