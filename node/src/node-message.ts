@@ -12,8 +12,16 @@ class NodeMessage {
     this.payload = payload;
   }
 
-  public static newBlock(block: Block) {
-    return new NodeMessage("v1", NodeMessageType.NewBlock, JSON.stringify(block));
+  public static block(block: Block) {
+    return new NodeMessage("v1", NodeMessageType.Block, JSON.stringify(block));
+  }
+
+  public static inventory(blockHash: string) {
+    return new NodeMessage("v1", NodeMessageType.Inv, blockHash);
+  }
+
+  public static getData(blockHash: string) {
+    return new NodeMessage("v1", NodeMessageType.GetData, blockHash);
   }
 
   public static hello(message: string) {
@@ -36,7 +44,10 @@ class NodeMessage {
 }
 
 export enum NodeMessageType {
-  NewBlock = "new-block",
+  Inv = "inv",
+  GetData = "get-data",
+  Block = "block",
+  GetHeaders = "get-headers",
   Hello = "hello",
   Transaction = "new-transaction",
 }

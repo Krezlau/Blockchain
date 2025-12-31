@@ -76,8 +76,25 @@ class App {
         this.broadcastNewTransaction(newTx);
       }
     }
+    if (nodeMessage.type === NodeMessageType.Inv) {
+      const blockHash = nodeMessage.payload;
+      if (this.blockChain.some((x) => x.hash === blockHash)) {
+        return;
+      }
 
-    if (nodeMessage.type === NodeMessageType.NewBlock) {
+      socket.send(NodeMessage.getData(blockHash).toJson());
+    }
+    if (nodeMessage.type === NodeMessageType.GetData) {
+      const blockHash = nodeMessage.payload;
+      const block = this.blockChain.find((x) => x.hash === blockHash);
+      if (!block) {
+        console.error("GetData: could not find the block " + blockHash);
+        return;
+      }
+
+      socket.send(NodeMessage.block(block).toJson());
+    }
+    if (nodeMessage.type === NodeMessageType.Block) {
       const newBlock: Block = Block.fromJson(nodeMessage.payload);
 
       const newChain = [...this.blockChain, newBlock];
@@ -176,7 +193,7 @@ class App {
   private broadcastNewBlock(block: Block, ignorePeer: WebSocket = null): void {
     this.blockChain.push(block);
 
-    const nodeMessage = NodeMessage.newBlock(block).toJson();
+    const nodeMessage = NodeMessage.inventory(block.hash).toJson();
     for (let i = 0; i < this.peers.length; i++) {
       const peer = this.peers[i];
       if (peer.socket !== ignorePeer && peer.socket.readyState === WebSocket.OPEN) {
