@@ -109,9 +109,23 @@ class App {
         const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
         this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
         this.broadcastNewBlock(newBlock, socket);
+      } else if (newBlock.index > this.blockChain[-1].index) {
+        console.log("Longer chain found. Querying all blocks...");
+
+        socket.send(NodeMessage.queryAll().toJson());
       } else {
         console.log("Received invalid block, ignoring.");
       }
+    }
+    if (nodeMessage.type === NodeMessageType.QueryAll) {
+      socket.send(NodeMessage.allBlocks(this.blockChain).toJson());
+    }
+    if (nodeMessage.type === NodeMessageType.AllBlocks) {
+      const newChain: Block[] = JSON.parse(nodeMessage.payload).map((blockData: any) =>
+        Block.fromJson(blockData)
+      );
+
+      this.replaceChain(newChain);
     }
     if (nodeMessage.type === NodeMessageType.Hello) {
       console.log("received hello message: " + nodeMessage.payload);
@@ -295,6 +309,30 @@ class App {
 
     // create new unspendUtxos list
     return [...remainingUnspentTxOuts, ...newUnspentTxOuts];
+  }
+
+  public replaceChain(newBlocks: Block[]): void {
+    if (isValidChain(newBlocks) && newBlocks.length > this.blockChain.length) {
+      console.log("Received blockchain is valid and longer. Replacing current chain.");
+
+      this.mempool = [];
+
+      this.blockChain = newBlocks;
+
+      this.unspentTxOuts = this.rebuildUtxos(this.blockChain);
+
+      this.broadcastNewBlock(this.blockChain[this.blockChain.length - 1]);
+    } else {
+      console.log("Received blockchain is invalid or shorter. Keeping current chain.");
+    }
+  }
+
+  private rebuildUtxos(blockchain: Block[]): UnspentTxOut[] {
+    let newUtxos: UnspentTxOut[] = [];
+    for (const block of blockchain) {
+      newUtxos = this.processTransactions(block.data, newUtxos);
+    }
+    return newUtxos;
   }
 }
 export default new App().express;

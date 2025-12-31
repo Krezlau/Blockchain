@@ -32,6 +32,16 @@ class NodeMessage {
     return new NodeMessage("v1", NodeMessageType.Transaction, JSON.stringify(transaction));
   }
 
+  // todo: optimize
+  public static queryAll() {
+    return new NodeMessage("v1", NodeMessageType.QueryAll, null);
+  }
+
+  // todo: optimize
+  public static allBlocks(blocks: Block[]) {
+    return new NodeMessage("v1", NodeMessageType.Block, JSON.stringify(blocks));
+  }
+
   public static fromJson(json: string) {
     const parsed = JSON.parse(json);
 
@@ -50,6 +60,8 @@ export enum NodeMessageType {
   GetHeaders = "get-headers",
   Hello = "hello",
   Transaction = "new-transaction",
+  QueryAll = "query-all",
+  AllBlocks = "all-blocks",
 }
 
 export default NodeMessage;
