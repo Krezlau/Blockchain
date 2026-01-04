@@ -174,4 +174,8 @@ function getAdjustedDifficulty(latestBlock: Block, blockchain: Block[]) {
   }
 }
 
+export function getCumulativeChainDifficulty(blockChain: Block[]) {
+  return blockChain.reduce((s, x) => s + Math.pow(2, x.difficulty), 0);
+}
+
 export default Block;

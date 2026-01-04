@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import * as http from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { Block, isValidChain, getDifficulty } from "./block";
+import { Block, isValidChain, getDifficulty, getCumulativeChainDifficulty } from "./block";
 import * as swaggerUi from "swagger-ui-express";
 import * as fs from "fs";
 import * as path from "path";
@@ -98,6 +98,7 @@ class App {
       const newBlock: Block = Block.fromJson(nodeMessage.payload);
 
       const newChain = [...this.blockChain, newBlock];
+      const latestBlock = this.blockChain[this.blockChain.length - 1];
 
       if (
         isValidChain(newChain) &&
@@ -109,7 +110,10 @@ class App {
         const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
         this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
         this.broadcastNewBlock(newBlock, socket);
-      } else if (newBlock.index > this.blockChain[-1].index) {
+      } else if (
+        newBlock.index > latestBlock.index ||
+        newBlock.difficulty > latestBlock.difficulty
+      ) {
         console.log("Longer chain found. Querying all blocks...");
 
         socket.send(NodeMessage.queryAll().toJson());
@@ -312,8 +316,13 @@ class App {
   }
 
   public replaceChain(newBlocks: Block[]): void {
-    if (isValidChain(newBlocks) && newBlocks.length > this.blockChain.length) {
-      console.log("Received blockchain is valid and longer. Replacing current chain.");
+    if (
+      isValidChain(newBlocks) &&
+      getCumulativeChainDifficulty(newBlocks) > getCumulativeChainDifficulty(this.blockChain)
+    ) {
+      console.log(
+        "Received blockchain is valid and with higher difficulty. Replacing current chain."
+      );
 
       this.mempool = [];
 
@@ -323,7 +332,9 @@ class App {
 
       this.broadcastNewBlock(this.blockChain[this.blockChain.length - 1]);
     } else {
-      console.log("Received blockchain is invalid or shorter. Keeping current chain.");
+      console.log(
+        "Received blockchain is invalid or with lower difficulty. Keeping current chain."
+      );
     }
   }
 
@@ -335,6 +346,9 @@ class App {
     return newUtxos;
   }
 }
+
+export { App };
+
 export default new App().express;
 
 function sleep(ms: number): Promise<void> {
