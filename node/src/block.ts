@@ -34,9 +34,8 @@ export class Block {
     this.nonce = nonce;
   }
 
-  public static fromJson(json: string) {
-    const parsed = JSON.parse(json);
-
+  public static fromJson(data: string | object) {
+    const parsed = typeof data === "string" ? JSON.parse(data) : data;
     return new Block(
       parsed.index,
       parsed.hash,
@@ -49,7 +48,7 @@ export class Block {
   }
 
   public static genesisBlock(): Block {
-    return new Block(0, "genesisBlockHash", null, 1, [], 20, 0);
+    return new Block(0, "genesisBlockHash", null, 1, [], 2, 0);
   }
 
   public static generateNewBlock(

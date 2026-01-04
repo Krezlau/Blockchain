@@ -53,88 +53,92 @@ class App {
   }
 
   private handleMessage(socket: WebSocket, message: Buffer): void {
-    console.log(`Received message: ${message.toString()}`);
-
-    let nodeMessage: NodeMessage;
     try {
-      const plaintext = message.toString("utf-8");
-      nodeMessage = NodeMessage.fromJson(plaintext);
-    } catch {
-      console.error("Could not parse message.");
-      return;
-    }
-    if (nodeMessage.type === NodeMessageType.Transaction) {
-      let newTx: Transaction;
+      console.log(`Received message: ${message.toString()}`);
+
+      let nodeMessage: NodeMessage;
       try {
-        newTx = JSON.parse(nodeMessage.payload);
+        const plaintext = message.toString("utf-8");
+        nodeMessage = NodeMessage.fromJson(plaintext);
       } catch {
-        console.error("Could not parse transaction");
+        console.error("Could not parse message.");
         return;
       }
+      if (nodeMessage.type === NodeMessageType.Transaction) {
+        let newTx: Transaction;
+        try {
+          newTx = JSON.parse(nodeMessage.payload);
+        } catch {
+          console.error("Could not parse transaction");
+          return;
+        }
 
-      if (this.addTransactionToMempool(newTx)) {
-        this.broadcastNewTransaction(newTx);
+        if (this.addTransactionToMempool(newTx)) {
+          this.broadcastNewTransaction(newTx);
+        }
       }
-    }
-    if (nodeMessage.type === NodeMessageType.Inv) {
-      const blockHash = nodeMessage.payload;
-      if (this.blockChain.some((x) => x.hash === blockHash)) {
-        return;
+      if (nodeMessage.type === NodeMessageType.Inv) {
+        const blockHash = nodeMessage.payload;
+        if (this.blockChain.some((x) => x.hash === blockHash)) {
+          return;
+        }
+
+        socket.send(NodeMessage.getData(blockHash).toJson());
       }
+      if (nodeMessage.type === NodeMessageType.GetData) {
+        const blockHash = nodeMessage.payload;
+        const block = this.blockChain.find((x) => x.hash === blockHash);
+        if (!block) {
+          console.error("GetData: could not find the block " + blockHash);
+          return;
+        }
 
-      socket.send(NodeMessage.getData(blockHash).toJson());
-    }
-    if (nodeMessage.type === NodeMessageType.GetData) {
-      const blockHash = nodeMessage.payload;
-      const block = this.blockChain.find((x) => x.hash === blockHash);
-      if (!block) {
-        console.error("GetData: could not find the block " + blockHash);
-        return;
+        socket.send(NodeMessage.block(block).toJson());
       }
+      if (nodeMessage.type === NodeMessageType.Block) {
+        const newBlock: Block = Block.fromJson(nodeMessage.payload);
 
-      socket.send(NodeMessage.block(block).toJson());
-    }
-    if (nodeMessage.type === NodeMessageType.Block) {
-      const newBlock: Block = Block.fromJson(nodeMessage.payload);
+        const newChain = [...this.blockChain, newBlock];
+        const latestBlock = this.blockChain[this.blockChain.length - 1];
 
-      const newChain = [...this.blockChain, newBlock];
-      const latestBlock = this.blockChain[this.blockChain.length - 1];
+        if (
+          isValidChain(newChain) &&
+          isValidBlockTransactions(newBlock.data, this.unspentTxOuts, newBlock.index)
+        ) {
+          console.log("New block is valid and new. Adding to chain.");
+          this.unspentTxOuts = this.processTransactions(newBlock.data, this.unspentTxOuts);
+          // when having multiple miners
+          const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
+          this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
+          this.broadcastNewBlock(newBlock, socket);
+        } else if (
+          newBlock.index > latestBlock.index ||
+          newBlock.difficulty > latestBlock.difficulty
+        ) {
+          console.log("Longer chain found. Querying all blocks...");
 
-      if (
-        isValidChain(newChain) &&
-        isValidBlockTransactions(newBlock.data, this.unspentTxOuts, newBlock.index)
-      ) {
-        console.log("New block is valid and new. Adding to chain.");
-        this.unspentTxOuts = this.processTransactions(newBlock.data, this.unspentTxOuts);
-        // when having multiple miners
-        const minedTxIds = newBlock.data.map((tx: Transaction) => tx.id);
-        this.mempool = this.mempool.filter((tx) => !minedTxIds.includes(tx.id));
-        this.broadcastNewBlock(newBlock, socket);
-      } else if (
-        newBlock.index > latestBlock.index ||
-        newBlock.difficulty > latestBlock.difficulty
-      ) {
-        console.log("Longer chain found. Querying all blocks...");
-
-        socket.send(NodeMessage.queryAll().toJson());
-      } else {
-        console.log("Received invalid block, ignoring.");
+          socket.send(NodeMessage.queryAll().toJson());
+        } else {
+          console.log("Received invalid block, ignoring.");
+        }
       }
-    }
-    if (nodeMessage.type === NodeMessageType.QueryAll) {
-      socket.send(NodeMessage.allBlocks(this.blockChain).toJson());
-    }
-    if (nodeMessage.type === NodeMessageType.AllBlocks) {
-      const newChain: Block[] = JSON.parse(nodeMessage.payload).map((blockData: any) =>
-        Block.fromJson(blockData)
-      );
+      if (nodeMessage.type === NodeMessageType.QueryAll) {
+        socket.send(NodeMessage.allBlocks(this.blockChain).toJson());
+      }
+      if (nodeMessage.type === NodeMessageType.AllBlocks) {
+        const newChain: Block[] = JSON.parse(nodeMessage.payload).map((blockData: any) =>
+          Block.fromJson(blockData)
+        );
 
-      this.replaceChain(newChain);
-    }
-    if (nodeMessage.type === NodeMessageType.Hello) {
-      console.log("received hello message: " + nodeMessage.payload);
-      const peer = this.peers.find((x) => x.socket === socket);
-      peer.url = nodeMessage.payload;
+        this.replaceChain(newChain);
+      }
+      if (nodeMessage.type === NodeMessageType.Hello) {
+        console.log("received hello message: " + nodeMessage.payload);
+        const peer = this.peers.find((x) => x.socket === socket);
+        peer.url = nodeMessage.payload;
+      }
+    } catch (e) {
+      console.log("CRITICAL ERROR in handleMessage:", e);
     }
   }
 
@@ -206,10 +210,33 @@ class App {
     this.express.get("/mempool", (req: Request, res: Response) => {
       res.send(this.mempool);
     });
+
+    this.express.post("/connect", (req: Request, res: Response) => {
+      const { peer } = req.body;
+      if (!peer) {
+        res.status(400).send("Peer address required");
+        return;
+      }
+      const peerUrl = peer.startsWith("ws://") ? peer : `ws://${peer}/`;
+      const client = new WebSocket(peerUrl);
+      client.on("open", () => {
+        this.addSocket(client, client.url);
+        client.send(NodeMessage.hello(`ws://${server_name}:${server_port}/`).toJson());
+        client.send(NodeMessage.queryAll().toJson());
+      });
+
+      client.on("error", (err) => {
+        console.error(`Connection failed: ${err.message}`);
+      });
+
+      res.send({ message: `Connecting to ${peerUrl}` });
+    });
   }
 
   private broadcastNewBlock(block: Block, ignorePeer: WebSocket = null): void {
-    this.blockChain.push(block);
+    if (this.blockChain[this.blockChain.length - 1].hash !== block.hash) {
+      this.blockChain.push(block);
+    }
 
     const nodeMessage = NodeMessage.inventory(block.hash).toJson();
     for (let i = 0; i < this.peers.length; i++) {

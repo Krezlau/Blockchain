@@ -39,7 +39,7 @@ class NodeMessage {
 
   // todo: optimize
   public static allBlocks(blocks: Block[]) {
-    return new NodeMessage("v1", NodeMessageType.Block, JSON.stringify(blocks));
+    return new NodeMessage("v1", NodeMessageType.AllBlocks, JSON.stringify(blocks));
   }
 
   public static fromJson(json: string) {
