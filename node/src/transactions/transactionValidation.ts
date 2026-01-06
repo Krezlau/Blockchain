@@ -86,6 +86,7 @@ export const isValidTransaction = (tx: Transaction, aUnspentTxOuts: UnspentTxOut
 
   const allInputsValid = tx.txIns.every((txIn) => validateTxIn(txIn, tx, aUnspentTxOuts));
   if (!allInputsValid) {
+    console.log("Transaction inputs invalid!")
     return false;
   }
 

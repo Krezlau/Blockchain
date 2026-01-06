@@ -115,13 +115,38 @@ class App {
           newBlock.index > latestBlock.index ||
           newBlock.difficulty > latestBlock.difficulty
         ) {
-          console.log("Longer chain found. Querying all blocks...");
+          console.log("Longer chain found. Asking for blocks headers to search for last common block...");
 
-          socket.send(NodeMessage.queryAll().toJson());
+          //socket.send(NodeMessage.queryAll().toJson());
+          socket.send(NodeMessage.getBlocksHeaders().toJson());
         } else {
           console.log("Received invalid block, ignoring.");
         }
       }
+      if (nodeMessage.type === NodeMessageType.GetBlocksHeaders) {
+        const headers = this.blockChain.map(b => ({ index: b.index, hash: b.hash }));
+        socket.send(NodeMessage.blocksHeaders(headers).toJson());
+      }
+
+      if (nodeMessage.type === NodeMessageType.BlocksHeaders) {
+        const remoteHeaders: {index: number, hash: string}[] = JSON.parse(nodeMessage.payload);
+        
+        let lastCommonIndex = -1;
+        
+        for (let i = remoteHeaders.length - 1; i >= 0; i--) {
+            const remote = remoteHeaders[i];
+            const local = this.blockChain[remote.index];
+            
+            if (local && local.hash === remote.hash) {
+                lastCommonIndex = remote.index;
+                break; 
+            }
+        }
+
+        console.log(`Common ancestor found at index: ${lastCommonIndex}`);
+        
+        socket.send(NodeMessage.getBlocksFrom(lastCommonIndex + 1).toJson());
+        }
       if (nodeMessage.type === NodeMessageType.QueryAll) {
         socket.send(NodeMessage.allBlocks(this.blockChain).toJson());
       }
@@ -132,11 +157,22 @@ class App {
 
         this.replaceChain(newChain);
       }
+
+      if (nodeMessage.type === NodeMessageType.GetBlocksFrom) {
+        const startIndex = parseInt(nodeMessage.payload);
+        const blocksToSend = this.blockChain.slice(startIndex);
+        
+        socket.send(NodeMessage.allBlocks(blocksToSend).toJson());
+      }
+      
       if (nodeMessage.type === NodeMessageType.Hello) {
         console.log("received hello message: " + nodeMessage.payload);
         const peer = this.peers.find((x) => x.socket === socket);
         peer.url = nodeMessage.payload;
       }
+
+      
+      
     } catch (e) {
       console.log("CRITICAL ERROR in handleMessage:", e);
     }
@@ -198,8 +234,12 @@ class App {
     });
 
     this.express.post("/send-transaction", (req: Request, res: Response) => {
-      if (this.addTransactionToMempool(req.body.transaction))
+      if (this.addTransactionToMempool(req.body.transaction)) {
         this.broadcastNewTransaction(req.body.transaction);
+        console.log("Transaction Added")
+      }
+
+      console.log("Transaction not added")
 
       res.send({ message: "Added transaction to mempool" });
     });
@@ -230,6 +270,18 @@ class App {
       });
 
       res.send({ message: `Connecting to ${peerUrl}` });
+    });
+
+    this.express.post("/disconnect-all", (req: Request, res: Response) => {
+      console.log("Disconnecting all peers...");
+
+      this.peers.forEach(peer => {
+        peer.socket.close();
+      });
+      
+      this.peers = [];
+      
+      res.send({ message: "Disconnected from all peers" });
     });
   }
 
@@ -343,19 +395,39 @@ class App {
   }
 
   public replaceChain(newBlocks: Block[]): void {
+    const firstNewBlock = newBlocks[0];
+    if (!firstNewBlock) return;
+
+    const commonPart = this.blockChain.slice(0, firstNewBlock.index);
+    const newChainCandidate = [...commonPart, ...newBlocks];
+
     if (
-      isValidChain(newBlocks) &&
-      getCumulativeChainDifficulty(newBlocks) > getCumulativeChainDifficulty(this.blockChain)
+      isValidChain(newChainCandidate) &&
+      getCumulativeChainDifficulty(newChainCandidate) > getCumulativeChainDifficulty(this.blockChain)
     ) {
       console.log(
-        "Received blockchain is valid and with higher difficulty. Replacing current chain."
+        "Received blocks lead to blockchain which is valid and with higher difficulty. Replacing current chain."
       );
 
-      this.mempool = [];
+      const abandonedTxs = this.blockChain
+        .slice(firstNewBlock.index)
+        .flatMap(block => block.data)
+        .filter(tx => tx.txIns[0].txOutId !== "0");
 
-      this.blockChain = newBlocks;
+      let candidateMempool = [...abandonedTxs, ...this.mempool];
+      
+      const txIdsInNewChain = new Set(
+        newChainCandidate
+          .flatMap(block => block.data)
+          .map(tx => tx.id)
+      );
 
+      candidateMempool = candidateMempool.filter(tx => !txIdsInNewChain.has(tx.id));
+
+      this.blockChain = newChainCandidate;
       this.unspentTxOuts = this.rebuildUtxos(this.blockChain);
+
+     this.mempool = candidateMempool.filter(tx => !txIdsInNewChain.has(tx.id));
 
       this.broadcastNewBlock(this.blockChain[this.blockChain.length - 1]);
     } else {

@@ -42,6 +42,18 @@ class NodeMessage {
     return new NodeMessage("v1", NodeMessageType.AllBlocks, JSON.stringify(blocks));
   }
 
+  public static getBlocksHeaders() {
+    return new NodeMessage("v1", NodeMessageType.GetBlocksHeaders, null);
+  }
+ 
+  public static blocksHeaders(headers: {index: number, hash: string}[]) {
+  return new NodeMessage("v1", NodeMessageType.BlocksHeaders, JSON.stringify(headers));
+  }
+
+  public static getBlocksFrom(index: number) {
+    return new NodeMessage("v1", NodeMessageType.GetBlocksFrom, index.toString());
+  }
+
   public static fromJson(json: string) {
     const parsed = JSON.parse(json);
 
@@ -62,6 +74,9 @@ export enum NodeMessageType {
   Transaction = "new-transaction",
   QueryAll = "query-all",
   AllBlocks = "all-blocks",
+  GetBlocksHeaders="get-blocks-headers",
+  BlocksHeaders="blocks-headers",
+  GetBlocksFrom="get-block-from"
 }
 
 export default NodeMessage;
