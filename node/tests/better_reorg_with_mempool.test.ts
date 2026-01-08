@@ -7,21 +7,23 @@ import * as crypto from "crypto";
 const ec = new EC("secp256k1");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const privateKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-const keyPair = ec.keyFromPrivate(privateKey);
-const walletAddress = keyPair.getPublic().encode("hex", false);
+const keyPairA = ec.genKeyPair();
+const walletAddressA = keyPairA.getPublic().encode("hex", false);
+
+const keyPairB = ec.genKeyPair();
+const walletAddressB = keyPairB.getPublic().encode("hex", false);
 
 const NODE_A_PORT = 3005;
 const NODE_B_PORT = 3006;
 const HTTP_URL_A = `http://localhost:${NODE_A_PORT}`;
 const HTTP_URL_B = `http://localhost:${NODE_B_PORT}`;
 
-const createTx = (utxoId: string, utxoIndex: number, amountToSpend: number, inputAmount: number = 50) => {
+const createTx = (utxoId: string, utxoIndex: number, amountToSpend: number, keyPair: any, senderAddress: string, inputAmount: number = 50) => {
     const tx: any = {
         txIns: [{ txOutId: utxoId, txOutIndex: utxoIndex, signature: "" }],
         txOuts: [
-            { address: walletAddress, amount: amountToSpend },
-            { address: walletAddress, amount: inputAmount - amountToSpend }
+            { address: senderAddress, amount: amountToSpend },
+            { address: senderAddress, amount: inputAmount - amountToSpend }
         ]
     };
 
@@ -54,105 +56,55 @@ describe("Blockchain Advanced Reorg & Mempool Recovery", () => {
         await sleep(1000);
     });
 
-    //   let nodeA: ChildProcess;
-    //   let nodeB: ChildProcess;
-    
-    //   const execCommand = "npx";
-    //   const execArgs = ["ts-node", path.resolve(__dirname, "../src/node.ts")];
-    
-    //   const startNode = async (port: number): Promise<ChildProcess> => {
-    //     const env = {
-    //       ...process.env,
-    //       SERVER_PORT: port.toString(),
-    //       PEER_ADDRESSES: "",
-    //       SERVER_NAME: "localhost",
-    //     };
-    
-    //     const processInstance = spawn(execCommand, execArgs, { env, stdio: "pipe" });
-    
-    //     //processInstance.stdout?.on("data", (d) => console.log(`[Node ${port}]: ${d}`));
-    
-    //     let attempts = 0;
-    //     while (attempts < 20) {
-    //       try {
-    //         await axios.get(`http://localhost:${port}/blocks`);
-    //         return processInstance;
-    //       } catch (e) {
-    //         await sleep(500);
-    //         attempts++;
-    //       }
-    //     }
-    //     throw new Error(`Node on port ${port} failed to start`);
-    //   };
-    
-    //   afterEach(async () => {
-    //     if (nodeA) nodeA.kill();
-    //     if (nodeB) nodeB.kill();
-    //     await sleep(1000);
-    //   });
-
 test("Isolated nodes with specific chain lengths and mempool", async () => {
     nodeA = await startNode(NODE_A_PORT);
     nodeB = await startNode(NODE_B_PORT);
 
     console.log("Setting up Node A...");
-    
-    await axios.post(`${HTTP_URL_A}/mine`, { minerAddress: walletAddress }); 
+    await axios.post(`${HTTP_URL_A}/mine`, { minerAddress: walletAddressA }); 
     await sleep(1500);
     
     let chainA_temp = (await axios.get(`${HTTP_URL_A}/blocks`)).data;
     const utxoA1 = chainA_temp[1].data[0].id; 
 
-    const txA1 = createTx(utxoA1, 0, 10, 50);
+    const txA1 = createTx(utxoA1, 0, 10, keyPairA, walletAddressA, 50);
     await axios.post(`${HTTP_URL_A}/send-transaction`, { transaction: txA1 });
     await sleep(1500);
     
-    await axios.post(`${HTTP_URL_A}/mine`, { minerAddress: walletAddress });
+    await axios.post(`${HTTP_URL_A}/mine`, { minerAddress: walletAddressA });
     await sleep(1500);
 
-    const txA_mempool = createTx(txA1.id, 1, 10, 40); 
+    const txA_mempool = createTx(txA1.id, 1, 10, keyPairA, walletAddressA, 40); 
     await axios.post(`${HTTP_URL_A}/send-transaction`, { transaction: txA_mempool });
     await sleep(1500);
 
     console.log("Setting up Node B...");
-    
-    await axios.post(`${HTTP_URL_B}/mine`, { minerAddress: walletAddress });
+    await axios.post(`${HTTP_URL_B}/mine`, { minerAddress: walletAddressB });
     await sleep(1500);
-    await axios.post(`${HTTP_URL_B}/mine`, { minerAddress: walletAddress });
+    await axios.post(`${HTTP_URL_B}/mine`, { minerAddress: walletAddressB });
     await sleep(1500);
     
     let chainB_temp = (await axios.get(`${HTTP_URL_B}/blocks`)).data;
     const utxoB2 = chainB_temp[2].data[0].id;
 
-    const txB1 = createTx(utxoB2, 0, 15,);
+    const txB1 = createTx(utxoB2, 0, 15, keyPairB, walletAddressB, 50);
     await axios.post(`${HTTP_URL_B}/send-transaction`, { transaction: txB1 });
     await sleep(1500);
     
-    await axios.post(`${HTTP_URL_B}/mine`, { minerAddress: walletAddress });
+    await axios.post(`${HTTP_URL_B}/mine`, { minerAddress: walletAddressB });
     await sleep(1500);
     
-    console.log("✅ State verified with logs. Ready for potential connect!");
-
-    console.log("5. Connecting Node A to Node B to trigger Reorg...");
+    console.log("✅ State verified. Connecting Node A to Node B...");
     await axios.post(`${HTTP_URL_A}/connect`, { peer: `localhost:${NODE_B_PORT}` });
-    await sleep(5000); 
+    await sleep(2000); 
 
     const finalBlocksA = (await axios.get(`${HTTP_URL_A}/blocks`)).data;
     const finalMempoolA = (await axios.get(`${HTTP_URL_A}/mempool`)).data;
 
-    console.log("*** Final Blocks_A (After Reorg) ***");
-    console.log(`Length: ${finalBlocksA.length}`);
-    
-    console.log("*** Final Mempool_A (After Reorg) ***");
-    console.log(JSON.stringify(finalMempoolA, null, 2));
-
     expect(finalBlocksA.length).toBe(4);
     const allTxsInAChain = finalBlocksA.flatMap((b: any) => b.data).map((t: any) => t.id);
     expect(allTxsInAChain).toContain(txB1.id);
-    const mempoolIds = finalMempoolA.map((t: any) => t.id);
-    expect(mempoolIds).toContain(txA1.id);
-    expect(mempoolIds).toContain(txA_mempool.id);
-    expect(finalMempoolA.length).toBe(2);
+    expect(finalMempoolA.length).toBe(0);
 
-    console.log("✅ SUCCESS: Node A adopted Node B's chain, recovered txA1 and kept txA_mempool!");
+    console.log("✅ SUCCESS: Node A rejected invalid mempool transactions after reorg!");
 }, 800000);})

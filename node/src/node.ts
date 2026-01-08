@@ -117,17 +117,33 @@ class App {
         ) {
           console.log("Longer chain found. Asking for blocks headers to search for last common block...");
 
-          //socket.send(NodeMessage.queryAll().toJson());
+          //request basic info about others node chain
           socket.send(NodeMessage.getBlocksHeaders().toJson());
         } else {
           console.log("Received invalid block, ignoring.");
         }
       }
+
+      if (nodeMessage.type === NodeMessageType.QueryAll) {
+        socket.send(NodeMessage.allBlocks(this.blockChain).toJson());
+      }
+
+      if (nodeMessage.type === NodeMessageType.AllBlocks) {
+        const newChain: Block[] = JSON.parse(nodeMessage.payload).map((blockData: any) =>
+          Block.fromJson(blockData)
+        );
+
+        this.replaceChain(newChain);
+      }
+
+
+      //send basic info about blocks in chain
       if (nodeMessage.type === NodeMessageType.GetBlocksHeaders) {
         const headers = this.blockChain.map(b => ({ index: b.index, hash: b.hash }));
         socket.send(NodeMessage.blocksHeaders(headers).toJson());
       }
 
+      //process info about others node blocks in chain, find last common block
       if (nodeMessage.type === NodeMessageType.BlocksHeaders) {
         const remoteHeaders: {index: number, hash: string}[] = JSON.parse(nodeMessage.payload);
         
@@ -147,17 +163,8 @@ class App {
         
         socket.send(NodeMessage.getBlocksFrom(lastCommonIndex + 1).toJson());
         }
-      if (nodeMessage.type === NodeMessageType.QueryAll) {
-        socket.send(NodeMessage.allBlocks(this.blockChain).toJson());
-      }
-      if (nodeMessage.type === NodeMessageType.AllBlocks) {
-        const newChain: Block[] = JSON.parse(nodeMessage.payload).map((blockData: any) =>
-          Block.fromJson(blockData)
-        );
 
-        this.replaceChain(newChain);
-      }
-
+      //send a part of chain starting after last common block
       if (nodeMessage.type === NodeMessageType.GetBlocksFrom) {
         const startIndex = parseInt(nodeMessage.payload);
         const blocksToSend = this.blockChain.slice(startIndex);
@@ -414,20 +421,15 @@ class App {
         .flatMap(block => block.data)
         .filter(tx => tx.txIns[0].txOutId !== "0");
 
-      let candidateMempool = [...abandonedTxs, ...this.mempool];
-      
-      const txIdsInNewChain = new Set(
-        newChainCandidate
-          .flatMap(block => block.data)
-          .map(tx => tx.id)
-      );
-
-      candidateMempool = candidateMempool.filter(tx => !txIdsInNewChain.has(tx.id));
+      const candidateMempool = [...abandonedTxs, ...this.mempool]
+      this.mempool = []
 
       this.blockChain = newChainCandidate;
       this.unspentTxOuts = this.rebuildUtxos(this.blockChain);
 
-     this.mempool = candidateMempool.filter(tx => !txIdsInNewChain.has(tx.id));
+      for(const tx of candidateMempool){
+        this.addTransactionToMempool(tx)
+      }
 
       this.broadcastNewBlock(this.blockChain[this.blockChain.length - 1]);
     } else {
