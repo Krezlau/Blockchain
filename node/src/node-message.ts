@@ -32,12 +32,10 @@ class NodeMessage {
     return new NodeMessage("v1", NodeMessageType.Transaction, JSON.stringify(transaction));
   }
 
-  // todo: optimize
   public static queryAll() {
     return new NodeMessage("v1", NodeMessageType.QueryAll, null);
   }
 
-  // todo: optimize
   public static allBlocks(blocks: Block[]) {
     return new NodeMessage("v1", NodeMessageType.AllBlocks, JSON.stringify(blocks));
   }
